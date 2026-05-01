@@ -500,7 +500,7 @@ function setupActivityMonitoring() {
         faceMessage: msg,
         violations: violationCount
       });
-      alert("⚠️ WARNING: You switched tabs! This activity has been reported to the proctor.");
+      showNotice("⚠️ ACTIVITY WARNING", "You switched tabs or minimized the browser! This activity has been reported to the proctor.", "🚫");
     }
   });
 
@@ -800,7 +800,7 @@ function submitExam() {
     }
   } catch (err) {
     console.error("Critical error during submission:", err);
-    alert("There was an error saving your results. Your camera has been stopped, but you can try refreshing the page.");
+    showNotice("⚠️ SUBMISSION ERROR", "There was an error saving your results locally, but your camera has been stopped. Please contact your instructor if you see this message.", "❌");
   }
 }
 
@@ -846,36 +846,12 @@ async function startPractice() {
    ============================== */
 
 function showProctorWarning(msg) {
-  // Check if warning is already showing to avoid duplicate alerts
-  if (document.getElementById('proctor-warning-overlay')) return;
-
-  const div = document.createElement('div');
-  div.id = 'proctor-warning-overlay';
-  div.style = `
-    position: fixed; inset: 0; z-index: 99999;
-    background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
-    display: flex; align-items: center; justify-content: center; padding: 20px;
-    animation: fadeIn 0.3s ease;
-  `;
-  div.innerHTML = `
-    <div style="background: #1a1a26; border: 2px solid #f87171; border-radius: 16px; padding: 32px; max-width: 400px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
-      <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-      <h2 style="font-family: 'Syne', sans-serif; color: #f87171; margin-bottom: 12px;">PROCTOR WARNING</h2>
-      <p style="color: #f0effe; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">${msg}</p>
-      <button onclick="acknowledgeWarning()" style="background: #f87171; color: white; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif;">I UNDERSTAND</button>
-    </div>
-  `;
-  document.body.appendChild(div);
-}
-
-async function acknowledgeWarning() {
-  const div = document.getElementById('proctor-warning-overlay');
-  if (div) div.remove();
-  
-  // Notify server that warning was seen
-  await apiFetch('/api/proctor/clear_warning', {
-      method: 'POST',
-      body: JSON.stringify({ studentId: user?.id })
+  showNotice("PROCTOR MESSAGE", msg, "⚠️").then(() => {
+    // Notify server that warning was seen
+    apiFetch('/api/proctor/clear_warning', {
+        method: 'POST',
+        body: JSON.stringify({ studentId: user?.id })
+    });
   });
 }
 

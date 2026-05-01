@@ -134,3 +134,59 @@ function parseQuestions(rawText) {
   const clean = rawText.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
+/**
+ * Stylish Toast Notification
+ */
+function showToast(type, title, msg, duration = 4000) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const icons = { success: '✓', error: '✕', warning: '⚠' };
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type] || 'i'}</div>
+    <div class="toast-content">
+      <div class="toast-title">${title}</div>
+      <div class="toast-msg">${msg}</div>
+    </div>
+  `;
+
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('toast-out');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+/**
+ * Stylish Notice Modal (replaces alert)
+ */
+function showNotice(title, msg, icon = 'ℹ️') {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'notice-overlay';
+    overlay.innerHTML = `
+      <div class="notice-card">
+        <div class="notice-icon">${icon}</div>
+        <div class="notice-title">${title}</div>
+        <div class="notice-msg">${msg}</div>
+        <button class="notice-btn">Acknowledge</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('.notice-btn').onclick = () => {
+      overlay.style.opacity = '0';
+      setTimeout(() => {
+        overlay.remove();
+        resolve();
+      }, 300);
+    };
+  });
+}
