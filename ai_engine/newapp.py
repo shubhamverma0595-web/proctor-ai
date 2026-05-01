@@ -5,6 +5,7 @@ import base64
 import requests
 import cv2
 import numpy as np
+import datetime
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -289,7 +290,6 @@ def update_proctor_session():
     
     try:
         # Map frontend camelCase to backend snake_case for Supabase
-        import datetime
         session_data = {
             "student_id": data.get("studentId"),
             "name": data.get("name"),
