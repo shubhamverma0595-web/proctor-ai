@@ -44,13 +44,22 @@ else:
     print("WARNING: SUPABASE_URL or SUPABASE_KEY is missing from .env")
 
 # ---------------- MEDIAPIPE INIT (GLOBAL) ----------------
-print("Initializing Mediapipe...")
-import mediapipe as mp
+# ---------------- MEDIAPIPE INIT (GLOBAL) ----------------
+detector = None
 
-# Initialize the detector
-mp_face = mp.solutions.face_detection
-detector = mp_face.FaceDetection(model_selection=0, min_detection_confidence=0.5)
-print("Mediapipe initialized.")
+def get_face_detector():
+    global detector
+    if detector is None:
+        try:
+            print("Lazy initializing Mediapipe...")
+            import mediapipe as mp
+            import mediapipe.python.solutions.face_detection as mp_face
+            detector = mp_face.FaceDetection(model_selection=0, min_detection_confidence=0.5)
+            print("Mediapipe initialized successfully.")
+        except Exception as e:
+            print(f"FAILED to initialize Mediapipe: {e}")
+            # Fallback or error handling
+    return detector
 
 
 # ---------------- ROUTES ----------------
@@ -154,7 +163,12 @@ def analyze():
             return jsonify({"error": "Invalid image"}), 400
 
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        result = detector.process(rgb)
+        
+        face_detector = get_face_detector()
+        if face_detector is None:
+             return jsonify({"error": "AI Engine (Mediapipe) failed to load on server"}), 500
+             
+        result = face_detector.process(rgb)
 
         face_count = len(result.detections) if result and result.detections else 0
 
