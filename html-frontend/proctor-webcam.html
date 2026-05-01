@@ -713,12 +713,26 @@ function updateFocusFps(id) {
 }
 
 /* ── VIOLATION LOG ── */
-function addViolation(s, msg) {
-  totalViol++;
-  logEntries.unshift({ name: s.name, email: s.email||'', msg, type: s.faceStatus, time: new Date() });
+function addViolation(session, msg, type = 'err') {
+  const time = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const logItem = {
+    studentId: session.studentId,
+    name: session.name,
+    msg,
+    time,
+    type
+  };
+  
+  violationLog.unshift(logItem);
+  if (violationLog.length > 100) violationLog.pop();
+
   renderViolationLog();
-  showToast(s.faceStatus==='err' ? 'err' : 'warn', s.name, msg);
   updateCounts();
+  
+  // High-priority toast for violations
+  if (type === 'err') {
+    showToast('t-err', 'Violation Alert', `${session.name}: ${msg}`);
+  }
 }
 
 function renderViolationLog() {
@@ -810,9 +824,25 @@ function renderSnapshots() {
 }
 
 /* ── ACTIONS ── */
-function warnStudent(id) {
+async function warnStudent(id) {
   const entry = students[id]; if (!entry) return;
-  addViolation(entry.session, 'Manual warning issued by proctor');
+  const s = entry.session;
+  const msg = prompt(`Enter warning message for ${s.name}:`, "Please stay focused on the exam. No talking or tab switching allowed.");
+  if (!msg) return;
+
+  try {
+    const res = await fetch('/api/proctor/warn', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId: id, message: msg })
+    });
+    if (res.ok) {
+        showToast('t-ok', 'Warning Sent', `Sent to ${s.name}`);
+        addViolation(s, `Sent manual warning: "${msg}"`, 'warn');
+    }
+  } catch (e) {
+    showToast('t-err', 'Failed to send warning', e.message);
+  }
 }
 
 function removeStudent(id) {

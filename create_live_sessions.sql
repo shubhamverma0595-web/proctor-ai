@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.live_sessions (
     face_message TEXT,
     time_left INTEGER,
     last_frame TEXT, -- Stores the Base64 webcam frame
+    warning_message TEXT, -- Real-time message from proctor
     last_heartbeat TIMESTAMPTZ DEFAULT now()
 );
 

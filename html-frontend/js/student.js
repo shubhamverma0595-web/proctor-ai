@@ -65,8 +65,10 @@ function broadcastSession(extra = {}) {
       method: 'POST',
       body: JSON.stringify(serverData)
     }).then(res => {
+        if (res.ok && res.data.warning) {
+            showProctorWarning(res.data.warning);
+        }
         if (!res.ok) console.error("Server sync failed:", res.data);
-        else console.log("Server sync successful");
     });
   } catch(e) {
     console.error("Broadcast error:", e);
@@ -483,6 +485,37 @@ async function openTest(test) {
   await startWebcam();
   await generateQuestions(test.subject || 'General Knowledge', 10);
   startTimer();
+  setupActivityMonitoring();
+}
+
+function setupActivityMonitoring() {
+  // Detect Tab Switching / Browser Minimizing
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && currentTest) {
+      violationCount++;
+      const msg = "Tab switch / Browser minimized!";
+      console.warn(msg);
+      broadcastSession({ 
+        faceStatus: 'err', 
+        faceMessage: msg,
+        violations: violationCount
+      });
+      alert("⚠️ WARNING: You switched tabs! This activity has been reported to the proctor.");
+    }
+  });
+
+  // Detect Fullscreen Exit
+  window.addEventListener('resize', () => {
+    if (currentTest && !document.fullscreenElement && !window.innerHeight >= screen.height - 10) {
+      // Small delay to avoid triggering on slight resizes
+      setTimeout(() => {
+        if (!document.fullscreenElement) {
+           console.warn("Fullscreen exited");
+           // We can log this but not necessarily count as violation unless required
+        }
+      }, 1000);
+    }
+  });
 }
 
 function closeExam() {
@@ -806,6 +839,44 @@ async function startPractice() {
   const fakeTest = { id: `practice_${Date.now()}`, title: `Practice: ${topic}`, subject: topic, duration: 30, totalMarks: count * 5 };
   await openTest(fakeTest);
   await generateQuestions(topic, count);
+}
+
+/* ==============================
+   PROCTOR WARNINGS
+   ============================== */
+
+function showProctorWarning(msg) {
+  // Check if warning is already showing to avoid duplicate alerts
+  if (document.getElementById('proctor-warning-overlay')) return;
+
+  const div = document.createElement('div');
+  div.id = 'proctor-warning-overlay';
+  div.style = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    animation: fadeIn 0.3s ease;
+  `;
+  div.innerHTML = `
+    <div style="background: #1a1a26; border: 2px solid #f87171; border-radius: 16px; padding: 32px; max-width: 400px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+      <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+      <h2 style="font-family: 'Syne', sans-serif; color: #f87171; margin-bottom: 12px;">PROCTOR WARNING</h2>
+      <p style="color: #f0effe; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">${msg}</p>
+      <button onclick="acknowledgeWarning()" style="background: #f87171; color: white; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif;">I UNDERSTAND</button>
+    </div>
+  `;
+  document.body.appendChild(div);
+}
+
+async function acknowledgeWarning() {
+  const div = document.getElementById('proctor-warning-overlay');
+  if (div) div.remove();
+  
+  // Notify server that warning was seen
+  await apiFetch('/api/proctor/clear_warning', {
+      method: 'POST',
+      body: JSON.stringify({ studentId: user?.id })
+  });
 }
 
 /* ---- Boot ---- */

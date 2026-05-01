@@ -311,7 +311,14 @@ def update_proctor_session():
         
         # Upsert into live_sessions
         supabase.table('live_sessions').upsert(session_data).execute()
-        return jsonify({"status": "updated"})
+        
+        # Check if there's a pending warning to return to the student
+        session_check = supabase.table('live_sessions').select('warning_message').eq('student_id', session_data['student_id']).execute()
+        warning = None
+        if session_check.data and session_check.data[0].get('warning_message'):
+            warning = session_check.data[0]['warning_message']
+            
+        return jsonify({"status": "success", "warning": warning}), 200
     except Exception as e:
         print(f"Error in proctor update: {e}")
         return jsonify({"error": str(e)}), 500
@@ -323,6 +330,36 @@ def get_proctor_sessions():
         # Fetch all live sessions
         response = supabase.table('live_sessions').select('*').execute()
         return jsonify(response.data)
+    except Exception as e:
+        print(f"Error fetching sessions: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/proctor/warn", methods=["POST"])
+def warn_student():
+    data = request.get_json()
+    student_id = data.get("studentId")
+    message = data.get("message")
+    
+    if not student_id or not message:
+        return jsonify({"error": "Missing studentId or message"}), 400
+        
+    try:
+        supabase.table('live_sessions').update({"warning_message": message}).eq('student_id', student_id).execute()
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/proctor/clear_warning", methods=["POST"])
+def clear_warning():
+    data = request.get_json()
+    student_id = data.get("studentId")
+    
+    if not student_id:
+        return jsonify({"error": "Missing studentId"}), 400
+        
+    try:
+        supabase.table('live_sessions').update({"warning_message": None}).eq('student_id', student_id).execute()
+        return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
