@@ -14,7 +14,10 @@ let currentTest = null;
 let timeLeft = 0;
 let examStartTime = null;
 let violationCount = 0;
-let lastCapturedFrame = null; // Global to store the latest frame for server sync
+let lastCapturedFrame = null;
+let lastFrameSent = 0;
+let frameInterval = null;
+let heartbeatInterval = null;
 
 /* ==============================
    LIVE SESSION BROADCAST
