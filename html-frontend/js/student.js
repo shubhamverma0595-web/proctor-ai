@@ -153,12 +153,19 @@ function computeStats() {
 
 function init() {
   user = requireAuth('student', 'proctor.html');
-  setNavUser(user);
+  if (!user) return; // Should be handled by requireAuth, but just in case
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  document.getElementById('welcome-title').textContent =
-    `${greeting}, ${user.name.split(' ')[0]} 👋`;
+  
+  const userNameEl = document.getElementById('user-name');
+  if (userNameEl) userNameEl.textContent = user.name || 'Student';
+
+  const welcomeTitleEl = document.getElementById('welcome-title');
+  if (welcomeTitleEl) {
+    const firstName = (user.name || 'Student').split(' ')[0];
+    welcomeTitleEl.textContent = `${greeting}, ${firstName} 👋`;
+  }
 
   loadTests();
   refreshDashboardStats();
