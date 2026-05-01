@@ -1,0 +1,287 @@
+/* =========================================
+   ProctorAI — Proctor Dashboard Styles
+   ========================================= */
+
+/* ---- Nav avatar gradient for proctor ---- */
+.nav-avatar.proctor {
+  background: linear-gradient(135deg, var(--accent), #34d399);
+}
+
+/* ---- Form Cards ---- */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px;
+  margin-bottom: 20px;
+}
+
+.form-card-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.field { margin-bottom: 16px; }
+.field.full { grid-column: 1 / -1; }
+
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 7px;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.field input::placeholder,
+.field textarea::placeholder { color: var(--text3); }
+
+.field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* ---- AI Generator Area ---- */
+.ai-gen-area {
+  background: rgba(124, 107, 255, 0.06);
+  border: 1px solid rgba(124, 107, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.ai-gen-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-gen-sub {
+  font-size: 13px;
+  color: var(--text2);
+  margin-bottom: 16px;
+}
+
+.ai-gen-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.ai-gen-row .field {
+  flex: 1;
+  margin: 0;
+  min-width: 140px;
+}
+
+.ai-gen-btn {
+  padding: 12px 20px;
+  background: var(--accent);
+  border: none;
+  border-radius: 9px;
+  color: white;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 16px;
+}
+
+.ai-gen-btn:hover { background: #6b5ce7; }
+.ai-gen-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ---- Questions Preview ---- */
+.q-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.q-item {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.q-item-num {
+  font-size: 11px;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+
+.q-item-text {
+  font-size: 14px;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.q-item-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.q-opt {
+  font-size: 12px;
+  color: var(--text2);
+  background: var(--surface3);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.q-opt.correct {
+  background: var(--green-bg);
+  color: var(--green);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+/* ---- Monitor Grid ---- */
+.monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.student-monitor {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.student-monitor:hover { border-color: var(--border2); }
+
+.monitor-video-area {
+  aspect-ratio: 4 / 3;
+  background: var(--surface2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  position: relative;
+}
+
+.monitor-status {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-ok {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+.status-warn {
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+  animation: pulse 1s infinite;
+}
+
+.monitor-info {
+  padding: 12px 14px;
+}
+
+.monitor-name {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.monitor-detail {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+/* ---- Student avatar in table ---- */
+.student-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
+
+.student-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ---- Form action row ---- */
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* ---- Gen status message ---- */
+.gen-success {
+  font-size: 13px;
+  color: var(--green);
+  margin-bottom: 12px;
+}
+
+/* ---- Spinner variant for light bg in gen button ---- */
+.gen-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+}

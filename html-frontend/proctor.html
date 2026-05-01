@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProctorAI — Proctor Dashboard</title>
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/proctor.css">
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="proctor.html">
+    <div class="nav-logo-icon">🎯</div>
+    Proctor<span>AI</span>
+  </a>
+  <div class="nav-right">
+    <div class="nav-badge">🛡 Proctor</div>
+    <div class="nav-user">
+      <div class="nav-avatar proctor" id="user-initials">P</div>
+      <span id="user-name-nav">Proctor</span>
+    </div>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-label">Dashboard</div>
+    <button class="sidebar-item active" onclick="showView('overview')"  id="nav-overview"><span class="icon">🏠</span> Overview</button>
+    <button class="sidebar-item"        onclick="showView('tests')"     id="nav-tests"><span class="icon">📝</span> Tests</button>
+    <button class="sidebar-item"        onclick="showView('students')"  id="nav-students"><span class="icon">👥</span> Students</button>
+    <button class="sidebar-item"        onclick="showView('monitor')"   id="nav-monitor"><span class="icon">👁</span> Monitor</button>
+    <div class="sidebar-label" style="margin-top:12px;">Create</div>
+    <button class="sidebar-item"        onclick="showView('create')"    id="nav-create"><span class="icon">✦</span> New Test</button>
+    <a class="sidebar-item" href="question-generator.html" style="text-decoration:none;"><span class="icon">🧠</span> Question Generator</a>
+    <a class="sidebar-item" href="proctor-webcam.html" style="text-decoration:none;"><span class="icon">📡</span> Live Proctor</a>
+  </div>
+
+  <div class="main">
+
+    <!-- OVERVIEW -->
+    <div class="view active" id="view-overview">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title" id="welcome-title">Proctor Dashboard</h1>
+          <p class="page-sub">Manage exams, monitor students, generate AI questions</p>
+        </div>
+        <button class="btn-primary" onclick="showView('create')">✦ Create Test</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card purple"><div class="stat-label">Total tests</div><div class="stat-value purple" id="stat-tests">—</div></div>
+        <div class="stat-card green"><div class="stat-label">Students registered</div><div class="stat-value green" id="stat-students">—</div></div>
+        <div class="stat-card amber"><div class="stat-label">Active now</div><div class="stat-value amber">0</div></div>
+        <div class="stat-card red"><div class="stat-label">Violations flagged</div><div class="stat-value red">0</div></div>
+      </div>
+      <div class="section-title">Recent tests</div>
+      <div class="table-card" id="overview-tests-table"><div style="color:var(--text3);font-size:13px;padding:24px;">Loading…</div></div>
+    </div>
+
+    <!-- TESTS -->
+    <div class="view" id="view-tests">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Tests</h1>
+          <p class="page-sub">All created exams</p>
+        </div>
+        <button class="btn-primary" onclick="showView('create')">✦ New Test</button>
+      </div>
+      <div class="table-card" id="tests-table"><div style="color:var(--text3);font-size:13px;padding:24px;">Loading…</div></div>
+    </div>
+
+    <!-- STUDENTS -->
+    <div class="view" id="view-students">
+      <div class="page-header" style="display:block;">
+        <h1 class="page-title">Students</h1>
+        <p class="page-sub">All registered students</p>
+      </div>
+      <div class="table-card" id="students-table"><div style="color:var(--text3);font-size:13px;padding:24px;">Loading…</div></div>
+    </div>
+
+    <!-- MONITOR -->
+    <div class="view" id="view-monitor">
+      <div class="page-header" style="display:block;">
+        <h1 class="page-title">Live Monitor</h1>
+        <p class="page-sub">Real-time student activity during active exams</p>
+      </div>
+      <div id="monitor-area">
+        <div class="empty-state">
+          <div class="icon">👁</div>
+          <p>No active exam sessions right now.<br>Students will appear here when an exam is in progress.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CREATE TEST -->
+    <div class="view" id="view-create">
+      <div class="page-header" style="display:block;">
+        <h1 class="page-title">Create Test</h1>
+        <p class="page-sub">Set up a new exam with AI-generated questions</p>
+      </div>
+
+      <div class="alert alert-success" id="create-success"></div>
+      <div class="alert alert-error"   id="create-error"></div>
+
+      <div class="form-card">
+        <div class="form-card-title">Test details</div>
+        <div class="form-grid">
+          <div class="field"><label>Test title</label><input type="text" id="t-title" placeholder="e.g. Mid-term Exam — Data Structures"></div>
+          <div class="field"><label>Subject</label><input type="text" id="t-subject" placeholder="e.g. Computer Science"></div>
+          <div class="field"><label>Duration (minutes)</label><input type="number" id="t-duration" value="45" min="5"></div>
+          <div class="field"><label>Total marks</label><input type="number" id="t-marks" value="50" min="1"></div>
+          <div class="field"><label>Scheduled date &amp; time</label><input type="datetime-local" id="t-scheduled"></div>
+          <div class="field full"><label>Description</label><textarea id="t-desc" placeholder="Brief description of this exam…"></textarea></div>
+        </div>
+      </div>
+
+      <div class="ai-gen-area">
+        <div class="ai-gen-title">🧠 AI Question Generator</div>
+        <div class="ai-gen-sub">Generate MCQs automatically using GPT-4o-mini. Questions will be previewed below before saving.</div>
+        <div class="ai-gen-row">
+          <div class="field"><label>Topic / subject</label><input type="text" id="ai-topic" placeholder="e.g. Binary Search Trees"></div>
+          <div class="field" style="width:140px;flex:none;">
+            <label>Count</label>
+            <select id="ai-count">
+              <option value="5">5 Qs</option>
+              <option value="10" selected>10 Qs</option>
+              <option value="15">15 Qs</option>
+              <option value="20">20 Qs</option>
+            </select>
+          </div>
+          <div class="field" style="width:130px;flex:none;">
+            <label>Difficulty</label>
+            <select id="ai-diff"><option>Easy</option><option selected>Medium</option><option>Hard</option></select>
+          </div>
+          <button class="ai-gen-btn" onclick="generateQuestions()" id="gen-btn">Generate ✦</button>
+        </div>
+        <div id="q-preview"></div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-primary" onclick="createTest()" id="create-btn">Save test</button>
+        <button class="btn-secondary" onclick="resetForm()">Reset</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/proctor.js"></script>
+</body>
+</html>

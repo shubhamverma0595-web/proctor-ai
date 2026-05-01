@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProctorAI — Live Proctoring</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0f;--s1:#12121a;--s2:#1a1a26;--s3:#20202e;
+  --b1:rgba(255,255,255,0.07);--b2:rgba(255,255,255,0.13);
+  --acc:#7c6bff;--acc2:#a78bfa;
+  --text:#f0effe;--t2:#9b97b8;--t3:#5c5878;
+  --green:#34d399;--gbg:rgba(52,211,153,.1);
+  --red:#f87171;  --rbg:rgba(248,113,113,.12);
+  --amber:#fbbf24;--abg:rgba(251,191,36,.1);
+  --font:'DM Sans',sans-serif;--mono:'JetBrains Mono',monospace;--disp:'Syne',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* NAV */
+nav{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:54px;flex-shrink:0;background:var(--s1);border-bottom:1px solid var(--b1);}
+.nav-logo{display:flex;align-items:center;gap:8px;font-family:var(--disp);font-size:16px;font-weight:700;text-decoration:none;color:var(--text);}
+.nav-logo-icon{width:26px;height:26px;background:var(--acc);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.nav-logo span{color:var(--acc2);}
+.session-pill{display:flex;align-items:center;gap:6px;background:var(--rbg);border:1px solid rgba(248,113,113,.25);border-radius:100px;padding:4px 12px;font-size:12px;color:var(--red);font-weight:500;}
+.rec-dot{width:6px;height:6px;background:var(--red);border-radius:50%;animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.nav-btn{padding:6px 14px;border-radius:7px;font-size:12px;font-family:var(--font);font-weight:500;cursor:pointer;transition:all .15s;}
+.nb-outline{background:none;border:1px solid var(--b2);color:var(--t2);}
+.nb-outline:hover{border-color:var(--acc);color:var(--acc2);}
+.nb-red{background:var(--rbg);border:1px solid rgba(248,113,113,.3);color:var(--red);}
+.nb-red:hover{background:rgba(248,113,113,.2);}
+
+/* LAYOUT */
+.app-body{display:flex;flex:1;overflow:hidden;}
+.grid-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.grid-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--s1);border-bottom:1px solid var(--b1);flex-shrink:0;}
+.toolbar-left{display:flex;align-items:center;gap:10px;}
+.count-badge{font-size:11px;color:var(--t3);background:var(--s2);padding:2px 8px;border-radius:100px;}
+.flagged-badge{font-size:11px;color:var(--red);animation:blink 2s infinite;}
+.gst-btn{width:26px;height:26px;border:1px solid var(--b1);border-radius:5px;background:none;color:var(--t3);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.gst-btn.active{background:var(--acc);border-color:var(--acc);color:#fff;}
+
+/* GRID */
+.grid-scroll{flex:1;overflow-y:auto;padding:12px;}
+.student-grid{display:grid;gap:10px;grid-template-columns:repeat(3,1fr);}
+.student-grid.cols2{grid-template-columns:repeat(2,1fr);}
+.student-grid.cols4{grid-template-columns:repeat(4,1fr);}
+
+/* TILE */
+.tile{background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .2s;}
+.tile:hover{border-color:var(--b2);}
+.tile.active-tile{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc);}
+.tile.violation-tile{border-color:rgba(248,113,113,.5);}
+
+/* MEDIA AREA — the live webcam canvas */
+.tile-media{aspect-ratio:4/3;position:relative;background:var(--s2);overflow:hidden;}
+
+/* Canvas for live drawing — fills the tile */
+.tile-canvas{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;display:block;
+  image-rendering:auto;
+}
+
+/* Fallback shown when no frame yet */
+.tile-fallback{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;
+  transition:opacity .3s;
+}
+.tile-fallback.hidden{opacity:0;pointer-events:none;}
+.tile-initials{width:48px;height:48px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-size:17px;font-weight:700;color:#fff;}
+.tile-no-cam{font-size:10px;color:var(--t3);}
+
+/* Gradient overlay */
+.tile-grad{position:absolute;inset:0;background:linear-gradient(to top,rgba(10,10,15,.88) 0%,transparent 55%);pointer-events:none;}
+
+/* Status badge */
+.tile-status{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);border-radius:100px;padding:3px 9px;font-size:10px;font-weight:500;border:1px solid rgba(255,255,255,.08);}
+.sdot{width:5px;height:5px;border-radius:50%;}
+.sdot.ok{background:var(--green);box-shadow:0 0 4px var(--green);}
+.sdot.warn{background:var(--amber);animation:blink .8s infinite;}
+.sdot.err{background:var(--red);box-shadow:0 0 5px var(--red);animation:blink .5s infinite;}
+.slabel.ok{color:var(--green);}.slabel.warn{color:var(--amber);}.slabel.err{color:var(--red);}
+
+/* LIVE badge — shows when stream is active */
+.tile-live{position:absolute;top:8px;left:8px;display:none;align-items:center;gap:4px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);border-radius:100px;padding:2px 8px;font-size:9px;color:var(--red);border:1px solid rgba(248,113,113,.25);font-weight:600;letter-spacing:.04em;}
+.tile-live.on{display:flex;}
+
+/* FPS counter */
+.tile-fps{position:absolute;bottom:8px;right:8px;font-size:9px;font-family:var(--mono);color:rgba(255,255,255,.4);display:none;}
+.tile-fps.on{display:block;}
+
+/* Snapshot button */
+.tile-snap-btn{position:absolute;bottom:8px;left:8px;width:26px;height:26px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:var(--t2);font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;transition:all .15s;}
+.tile:hover .tile-snap-btn{display:flex;}
+.tile-snap-btn:hover{background:rgba(124,107,255,.5);color:#fff;border-color:var(--acc);}
+
+/* TILE INFO — name + email on separate lines */
+.tile-info{padding:10px 12px;}
+.tile-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;margin-bottom:2px;}
+.tile-email{font-size:10px;color:var(--t3);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px;}
+.tile-prog-bar{height:2px;background:var(--s3);border-radius:2px;overflow:hidden;margin-bottom:5px;}
+.tile-prog-fill{height:100%;background:var(--acc);border-radius:2px;transition:width .5s ease;}
+.tile-row{display:flex;align-items:center;justify-content:space-between;}
+.tile-progress-text{font-size:11px;color:var(--t3);}
+.tile-viol.clean{font-size:11px;color:var(--t3);}
+.tile-viol.dirty{font-size:11px;color:var(--red);}
+
+/* EMPTY STATE */
+.empty-grid{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;color:var(--t3);text-align:center;padding:40px;}
+.empty-icon{font-size:48px;opacity:.4;}
+.empty-title{font-family:var(--disp);font-size:20px;color:var(--t2);font-weight:600;}
+.empty-sub{font-size:13px;line-height:1.7;max-width:360px;}
+.empty-steps{width:100%;max-width:420px;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px 20px;text-align:left;}
+.empty-step{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--t2);margin-bottom:10px;}
+.empty-step:last-child{margin-bottom:0;}
+.step-num{width:22px;height:22px;border-radius:50%;background:rgba(124,107,255,.15);border:1px solid rgba(124,107,255,.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--acc2);flex-shrink:0;margin-top:1px;}
+code{font-family:var(--mono);font-size:11px;color:var(--acc2);background:rgba(124,107,255,.1);padding:1px 5px;border-radius:3px;}
+
+/* RIGHT PANEL */
+.right-panel{width:300px;flex-shrink:0;background:var(--s1);border-left:1px solid var(--b1);display:flex;flex-direction:column;overflow:hidden;}
+.panel-tabs{display:flex;border-bottom:1px solid var(--b1);}
+.ptab{flex:1;padding:11px 0;font-size:12px;font-weight:500;color:var(--t3);cursor:pointer;border:none;background:none;font-family:var(--font);transition:all .15s;text-align:center;border-bottom:2px solid transparent;}
+.ptab.active{color:var(--acc2);border-bottom-color:var(--acc);}
+.ptab:hover:not(.active){color:var(--t2);}
+.vbadge{font-size:10px;background:var(--rbg);color:var(--red);padding:1px 5px;border-radius:100px;margin-left:4px;display:none;}
+.panel-body{flex:1;overflow-y:auto;}
+.panel-section{display:none;}
+.panel-section.active{display:block;}
+
+/* FOCUS VIEW */
+.focus-view{padding:14px;}
+.focus-video-wrap{position:relative;aspect-ratio:16/9;background:var(--s2);border-radius:10px;overflow:hidden;margin-bottom:12px;}
+
+/* Large canvas in focus panel */
+.focus-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;image-rendering:auto;}
+.focus-fallback{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;}
+.focus-initials{width:56px;height:56px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-size:20px;font-weight:700;}
+.focus-no-cam-txt{font-size:11px;color:var(--t3);}
+.focus-fallback.hidden{opacity:0;pointer-events:none;}
+
+/* Name + email overlay — stacked, never merged */
+.focus-name-bar{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:22px 12px 10px;
+  background:linear-gradient(to top,rgba(10,10,15,.95) 0%,transparent 100%);
+  pointer-events:none;
+}
+.focus-student-name{font-family:var(--disp);font-size:14px;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:3px;}
+.focus-student-email{font-size:10px;color:var(--t2);font-family:var(--mono);opacity:.85;}
+
+.focus-status-overlay{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);border-radius:100px;padding:3px 9px;font-size:11px;font-weight:500;border:1px solid rgba(255,255,255,.08);}
+.focus-live-badge{position:absolute;top:8px;left:8px;display:none;align-items:center;gap:4px;background:rgba(0,0,0,.72);border-radius:100px;padding:2px 9px;font-size:9px;color:var(--red);border:1px solid rgba(248,113,113,.25);font-weight:600;}
+.focus-live-badge.on{display:flex;}
+.focus-fps{position:absolute;bottom:8px;right:8px;font-size:9px;font-family:var(--mono);color:rgba(255,255,255,.35);}
+
+.focus-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.fstat{background:var(--s2);border-radius:8px;padding:10px;}
+.fstat-label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+.fstat-val{font-family:var(--disp);font-size:20px;font-weight:700;}
+.fstat-val.green{color:var(--green);}.fstat-val.red{color:var(--red);}.fstat-val.amber{color:var(--amber);}
+
+.focus-actions{display:flex;gap:7px;margin-bottom:12px;}
+.faction{flex:1;padding:8px 0;border-radius:7px;font-size:12px;font-family:var(--font);font-weight:500;cursor:pointer;border:none;transition:all .15s;text-align:center;}
+.fa-snap{background:rgba(124,107,255,.12);color:var(--acc2);border:1px solid rgba(124,107,255,.25);}
+.fa-warn{background:var(--abg);color:var(--amber);border:1px solid rgba(251,191,36,.25);}
+.fa-kick{background:var(--rbg);color:var(--red);border:1px solid rgba(248,113,113,.25);}
+.faction:hover{filter:brightness(1.2);}
+
+.focus-exam-info{background:var(--s2);border-radius:8px;padding:10px 12px;}
+.fei-title{font-weight:500;font-size:13px;margin-bottom:8px;color:var(--text);}
+.fei-row{display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px;gap:8px;}
+.fei-row span:first-child{color:var(--t3);flex-shrink:0;}
+.fei-row span:last-child{color:var(--text);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* VIOLATION LOG */
+.vlog-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 6px;}
+.vlog-title{font-size:13px;font-weight:500;}
+.vlog-clear{font-size:11px;color:var(--t3);cursor:pointer;background:none;border:none;font-family:var(--font);}
+.vlog-clear:hover{color:var(--t2);}
+.vlog-empty{padding:32px 16px;text-align:center;color:var(--t3);font-size:13px;}
+.vlog-item{display:flex;gap:9px;padding:9px 14px;border-bottom:1px solid var(--b1);animation:slin .2s ease;}
+@keyframes slin{from{opacity:0;transform:translateX(6px)}to{opacity:1;transform:none}}
+.vlog-item:hover{background:var(--s2);}
+.vlog-icon{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:1px;}
+.vlog-icon.err{background:var(--rbg);}.vlog-icon.warn{background:var(--abg);}
+.vlog-content{flex:1;min-width:0;}
+.vlog-who{font-size:12px;font-weight:500;margin-bottom:1px;}
+.vlog-msg{font-size:11px;color:var(--t2);line-height:1.4;}
+.vlog-time{font-size:10px;color:var(--t3);font-family:var(--mono);margin-top:2px;}
+
+/* SNAPSHOTS */
+.snaps-header{padding:12px 14px 6px;font-size:13px;font-weight:500;}
+.snaps-empty{padding:24px;text-align:center;color:var(--t3);font-size:12px;}
+.snaps-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 14px 14px;}
+.snap-thumb{position:relative;border-radius:7px;overflow:hidden;aspect-ratio:4/3;background:var(--s2);}
+.snap-thumb canvas,.snap-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.snap-meta{position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(to top,rgba(0,0,0,.85),transparent);}
+.snap-who{font-size:10px;font-weight:500;display:block;}
+.snap-ts{font-size:9px;color:var(--t2);font-family:var(--mono);}
+.snap-badge{position:absolute;top:4px;right:4px;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:500;}
+.snap-badge.viol{background:var(--rbg);color:var(--red);}.snap-badge.ok{background:var(--gbg);color:var(--green);}
+
+/* TOASTS */
+.toast-container{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:7px;pointer-events:none;}
+.toast{display:flex;align-items:center;gap:10px;background:var(--s1);border:1px solid var(--b2);border-radius:10px;padding:11px 15px;min-width:260px;animation:tin .25s ease;pointer-events:all;box-shadow:0 8px 28px rgba(0,0,0,.4);}
+@keyframes tin{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+.toast.tout{animation:tout .25s ease forwards;}
+@keyframes tout{to{opacity:0;transform:translateY(6px) scale(.96)}}
+.toast.t-err{border-left:3px solid var(--red);}.toast.t-warn{border-left:3px solid var(--amber);}.toast.t-ok{border-left:3px solid var(--green);}
+.toast-icon{font-size:15px;flex-shrink:0;}.toast-body{flex:1;}
+.toast-title{font-size:13px;font-weight:500;margin-bottom:2px;}.toast-msg{font-size:12px;color:var(--t2);}
+.toast-x{font-size:14px;color:var(--t3);cursor:pointer;background:none;border:none;}
+
+/* STATUS BAR */
+.status-bar{height:28px;background:var(--s1);border-top:1px solid var(--b1);display:flex;align-items:center;padding:0 14px;gap:18px;font-size:11px;color:var(--t3);flex-shrink:0;font-family:var(--mono);}
+.sb-dot{width:5px;height:5px;border-radius:50%;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="proctor.html">
+    <div class="nav-logo-icon">🎯</div>Proctor<span>AI</span>
+  </a>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="session-pill"><div class="rec-dot"></div>Session live</div>
+    <span style="font-family:var(--mono);font-size:13px;color:var(--t2);" id="session-timer">00:00</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="nav-btn nb-outline" onclick="captureAll()">📸 Snapshot all</button>
+    <button class="nav-btn nb-red" onclick="endSession()">⬛ End session</button>
+  </div>
+</nav>
+
+<div class="app-body">
+  <div class="grid-panel">
+    <div class="grid-toolbar">
+      <div class="toolbar-left">
+        <span style="font-size:13px;font-weight:500;">Live students</span>
+        <span class="count-badge" id="count-badge">0 online</span>
+        <span class="flagged-badge" id="flagged-badge" style="display:none;"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;color:var(--t3);">Grid:</span>
+        <div style="display:flex;gap:3px;">
+          <button class="gst-btn" onclick="setGrid(2)" id="g2">▦</button>
+          <button class="gst-btn active" onclick="setGrid(3)" id="g3">⊞</button>
+          <button class="gst-btn" onclick="setGrid(4)" id="g4">⊟</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid-scroll" id="grid-scroll"></div>
+  </div>
+
+  <div class="right-panel">
+    <div class="panel-tabs">
+      <button class="ptab active" id="ptab-focus" onclick="switchPanel('focus')">Focus</button>
+      <button class="ptab" id="ptab-log" onclick="switchPanel('log')">Violations <span class="vbadge" id="vbadge"></span></button>
+      <button class="ptab" id="ptab-snaps" onclick="switchPanel('snaps')">Snapshots</button>
+    </div>
+    <div class="panel-body">
+      <div class="panel-section active" id="ps-focus">
+        <div id="focus-content" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;text-align:center;color:var(--t3);gap:10px;">
+          <div style="font-size:32px;">👆</div>
+          <div style="font-size:13px;line-height:1.6;">Click any student tile<br>to see their live details</div>
+        </div>
+      </div>
+      <div class="panel-section" id="ps-log">
+        <div class="vlog-header">
+          <span class="vlog-title">Violation log</span>
+          <button class="vlog-clear" onclick="clearLog()">Clear all</button>
+        </div>
+        <div id="vlog-list"><div class="vlog-empty"><div style="font-size:28px;margin-bottom:8px;">✅</div>All students clear</div></div>
+      </div>
+      <div class="panel-section" id="ps-snaps">
+        <div class="snaps-header">Captured snapshots</div>
+        <div class="snaps-empty" id="snaps-empty">No snapshots yet</div>
+        <div class="snaps-grid" id="snaps-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <div style="display:flex;align-items:center;gap:5px;"><div class="sb-dot" style="background:var(--green)"></div><span id="sb-status">Waiting…</span></div>
+  <span>Frame: <span style="color:var(--t2);" id="sb-fps">—</span></span>
+  <span id="sb-last">Last frame: —</span>
+  <div style="flex:1;"></div>
+  <span id="sb-total">0 violations</span>
+</div>
+<div class="toast-container" id="toasts"></div>
+
+<script>
+/* ================================================================
+   ProctorAI — Live Proctor Monitor  (smooth real-time version)
+
+   HOW IT WORKS:
+   - Student writes webcam frame to localStorage every 1 second
+   - window 'storage' event fires instantly in proctor tab → 0 delay
+   - Each student has an offscreen Image object; onload → draw to canvas
+   - Face analysis (Flask) runs every 6s on student side
+   - Session metadata (progress, violations) polled every 3s
+   ================================================================ */
+
+const SESSION_PREFIX = 'proctor_live_session_';
+const FRAME_PREFIX   = 'proctor_frame_';
+const STALE_MS       = 15000;
+const FRAME_STALE_MS = 2500;  // frame older than 4s = stream stopped
+
+// ── PER-STUDENT STATE ──
+// Each entry in `students` holds:
+//   session   : latest session object from localStorage
+//   img       : Image object for latest frame (decoded off-thread)
+//   canvas    : HTMLCanvasElement in the tile DOM
+//   fCanvas   : HTMLCanvasElement in the focus panel (if focused)
+//   lastFrameTs: timestamp of latest frame received
+//   fps        : estimated frames per second
+//   fpsFrames  : frame count in current second
+
+const students    = {};  // studentId → { session, img, canvas, fCanvas, lastFrameTs, fps, fpsFrames }
+let   focusedId   = null;
+let   logEntries  = [];
+let   snapshots   = [];
+let   totalViol   = 0;
+let   prevFaceStatus = {};
+let   sessionStart   = Date.now();
+let   totalFrames    = 0;
+let   lastFpsTick    = Date.now();
+
+// ── IMAGE POOL — reuse Image objects ──
+const imgPool = {};  // studentId → Image
+
+function getImg(studentId) {
+  if (!imgPool[studentId]) imgPool[studentId] = new Image();
+  return imgPool[studentId];
+}
+
+/* ── STORAGE EVENT — fires immediately when student writes a frame ── */
+window.addEventListener('storage', e => {
+  if (!e.key?.startsWith(FRAME_PREFIX)) return;
+  const studentId = e.key.slice(FRAME_PREFIX.length);
+  if (!students[studentId]) return;  // not a tracked student yet
+
+  try {
+    const obj = JSON.parse(e.newValue);
+    if (!obj || !obj.f) return;
+    loadFrame(studentId, obj.f, obj.t);
+  } catch {}
+});
+
+// Pending decoded images waiting for rAF draw
+const pendingFrames = {};   // studentId → Image (decoded, ready to draw)
+let   rafId         = null;
+
+function loadFrame(studentId, dataUrl, ts) {
+  const s = students[studentId];
+  if (!s) return;
+
+  s.lastFrameTs = ts || Date.now();
+  s.fpsFrames   = (s.fpsFrames || 0) + 1;
+  totalFrames++;
+
+  // Decode the image off the main thread timing; store for rAF draw
+  const img = getImg(studentId);
+  img.onload = () => {
+    pendingFrames[studentId] = img;   // mark as ready for next rAF tick
+  };
+  if (img.src !== dataUrl) img.src = dataUrl;
+  else pendingFrames[studentId] = img; // same src, already decoded
+
+  document.getElementById('sb-last').textContent =
+    'Last frame: ' + new Date().toLocaleTimeString();
+}
+
+// Dedicated draw loop — runs at display refresh rate (60fps)
+// Only does actual work when pendingFrames has something new
+function drawLoop() {
+  const ids = Object.keys(pendingFrames);
+  ids.forEach(studentId => {
+    const img = pendingFrames[studentId];
+    delete pendingFrames[studentId];
+    const s = students[studentId];
+    if (!s || !img.complete) return;
+
+    // Draw to tile canvas
+    if (s.canvas) {
+      s.canvas.getContext('2d').drawImage(img, 0, 0, s.canvas.width, s.canvas.height);
+      document.getElementById(`fallback-${studentId}`)?.classList.add('hidden');
+      document.getElementById(`live-${studentId}`)?.classList.add('on');
+      const fpsEl = document.getElementById(`fps-${studentId}`);
+      if (fpsEl) { fpsEl.classList.add('on'); fpsEl.textContent = `${s.fps||1} fps`; }
+    }
+
+    // Draw to focus canvas if this student is focused
+    if (focusedId === studentId && s.fCanvas) {
+      s.fCanvas.getContext('2d').drawImage(img, 0, 0, s.fCanvas.width, s.fCanvas.height);
+      document.getElementById('focus-fallback')?.classList.add('hidden');
+      document.getElementById('focus-live')?.classList.add('on');
+      updateFocusFps(studentId);
+    }
+  });
+  rafId = requestAnimationFrame(drawLoop);
+}
+rafId = requestAnimationFrame(drawLoop);
+
+/* ── POLL SESSIONS (metadata, 3s) ── */
+function pollSessions() {
+  const now  = Date.now();
+  const live = {};
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(SESSION_PREFIX)) continue;
+    try {
+      const s = JSON.parse(localStorage.getItem(key));
+      if (!s || s.status !== 'active') continue;
+      if (now - new Date(s.lastHeartbeat).getTime() > STALE_MS) continue;
+      live[s.studentId] = s;
+    } catch {}
+  }
+
+  // Detect face status changes → violations
+  Object.values(live).forEach(s => {
+    const prev = prevFaceStatus[s.studentId];
+    if (prev !== undefined && s.faceStatus === 'err' && prev !== 'err') {
+      addViolation(s, s.faceMessage || 'Violation detected');
+    }
+    prevFaceStatus[s.studentId] = s.faceStatus;
+  });
+
+  // Add new students, remove gone students
+  Object.keys(live).forEach(id => {
+    if (!students[id]) {
+      students[id] = { session: live[id], lastFrameTs: 0, fps: 0, fpsFrames: 0 };
+      renderGrid();
+      // Also try to load the latest stored frame immediately
+      try {
+        const raw = localStorage.getItem(FRAME_PREFIX + id);
+        if (raw) { const obj = JSON.parse(raw); if (obj?.f) loadFrame(id, obj.f, obj.t); }
+      } catch {}
+    } else {
+      students[id].session = live[id];
+      updateTileMeta(id, live[id]);
+    }
+  });
+
+  Object.keys(students).forEach(id => {
+    if (!live[id]) { delete students[id]; delete imgPool[id]; renderGrid(); }
+  });
+
+  // Hide tiles whose frame is stale (stream stopped)
+  Object.keys(students).forEach(id => {
+    const s = students[id];
+    if (s.lastFrameTs && Date.now() - s.lastFrameTs > FRAME_STALE_MS) {
+      const fb = document.getElementById(`fallback-${id}`);
+      if (fb) fb.classList.remove('hidden');
+      const live = document.getElementById(`live-${id}`);
+      if (live) live.classList.remove('on');
+    }
+  });
+
+  updateCounts();
+}
+
+/* ── FPS COUNTER — runs every second ── */
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(students).forEach(id => {
+    const s = students[id];
+    s.fps      = s.fpsFrames;
+    s.fpsFrames = 0;
+    const fpsEl = document.getElementById(`fps-${id}`);
+    if (fpsEl && s.fps > 0) fpsEl.textContent = `${s.fps} fps`;
+  });
+  // Status bar global fps
+  const globalFps = totalFrames;
+  totalFrames = 0;
+  document.getElementById('sb-fps').textContent =
+    globalFps > 0 ? `${globalFps} fps` : '—';
+}, 1000);
+
+/* ── RENDER GRID ── */
+function renderGrid() {
+  const container = document.getElementById('grid-scroll');
+  const ids = Object.keys(students);
+
+  if (!ids.length) {
+    container.innerHTML = `
+      <div class="empty-grid">
+        <div class="empty-icon">📡</div>
+        <div class="empty-title">Waiting for students…</div>
+        <div class="empty-sub">Students appear here automatically when they start an exam in the same browser.</div>
+        <div class="empty-steps">
+          <div class="empty-step"><div class="step-num">1</div><span>Run Flask: <code>python newapp.py</code></span></div>
+          <div class="empty-step"><div class="step-num">2</div><span><strong>Tab 1</strong> → <code>localhost:5000/login.html</code> → login as <strong>student</strong> → Start Exam → allow camera</span></div>
+          <div class="empty-step"><div class="step-num">3</div><span><strong>Tab 2</strong> → <code>localhost:5000/proctor-webcam.html</code> — student tile appears with live webcam feed</span></div>
+          <div class="empty-step"><div class="step-num">4</div><span>Both tabs must be on <code>localhost:5000</code> (same origin) to share localStorage</span></div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  let grid = container.querySelector('.student-grid');
+  if (!grid) {
+    grid = document.createElement('div');
+    grid.className = 'student-grid';
+    container.innerHTML = '';
+    container.appendChild(grid);
+  }
+
+  // Remove stale tiles
+  [...grid.querySelectorAll('.tile')].forEach(t => {
+    if (!students[t.dataset.id]) t.remove();
+  });
+
+  // Add missing tiles
+  ids.forEach(id => {
+    if (grid.querySelector(`[data-id="${id}"]`)) return;
+
+    const s = students[id].session;
+    const tile = document.createElement('div');
+    tile.dataset.id = id;
+    tile.className  = 'tile';
+    tile.innerHTML  = buildTileHTML(s);
+    tile.addEventListener('click', () => focusTile(id));
+    grid.appendChild(tile);
+
+    // Wire canvas reference
+    students[id].canvas = tile.querySelector(`.tile-canvas`);
+  });
+
+  // Reapply active highlight
+  document.querySelectorAll('.tile').forEach(t =>
+    t.classList.toggle('active-tile', t.dataset.id === focusedId));
+}
+
+function buildTileHTML(s) {
+  const ini = initials(s.name);
+  const st  = s.faceStatus || 'ok';
+  const sl  = st==='ok' ? 'Clear' : st==='warn' ? 'Warning' : 'Violation';
+  const vc  = s.violations || 0;
+  const pct = s.progress   || 0;
+  const email = s.email || s.studentId || '';
+
+  return `
+  <div class="tile-media">
+    <div class="tile-fallback" id="fallback-${s.studentId}">
+      <div class="tile-initials">${ini}</div>
+      <span class="tile-no-cam">Waiting for webcam…</span>
+    </div>
+    <canvas class="tile-canvas" width="320" height="240"></canvas>
+    <div class="tile-grad"></div>
+    <div class="tile-status" id="status-${s.studentId}">
+      <div class="sdot ${st}" id="sdot-${s.studentId}"></div>
+      <span class="slabel ${st}" id="slabel-${s.studentId}">${sl}</span>
+    </div>
+    <div class="tile-live" id="live-${s.studentId}">
+      <div class="rec-dot"></div>LIVE
+    </div>
+    <span class="tile-fps" id="fps-${s.studentId}"></span>
+    <button class="tile-snap-btn" onclick="captureSnapshot('${s.studentId}',event)">📸</button>
+  </div>
+  <div class="tile-info">
+    <div class="tile-name">${s.name}</div>
+    <div class="tile-email">${email}</div>
+    <div class="tile-prog-bar">
+      <div class="tile-prog-fill" id="prog-${s.studentId}" style="width:${pct}%"></div>
+    </div>
+    <div class="tile-row">
+      <span class="tile-progress-text" id="ptxt-${s.studentId}">${s.answered||0}/${s.total||0} (${pct}%)</span>
+      <span class="tile-viol ${vc>0?'dirty':'clean'}" id="viol-${s.studentId}">${vc>0?'⚠ '+vc:'✓ Clean'}</span>
+    </div>
+  </div>`;
+}
+
+/* Update only the metadata parts of an existing tile */
+function updateTileMeta(id, s) {
+  const tile = document.querySelector(`[data-id="${id}"]`);
+  if (!tile) return;
+
+  const st  = s.faceStatus || 'ok';
+  const sl  = st==='ok' ? 'Clear' : st==='warn' ? 'Warning' : 'Violation';
+  const vc  = s.violations || 0;
+  const pct = s.progress   || 0;
+
+  tile.classList.toggle('violation-tile', st === 'err');
+
+  const sdot   = document.getElementById(`sdot-${id}`);
+  const slabel = document.getElementById(`slabel-${id}`);
+  const prog   = document.getElementById(`prog-${id}`);
+  const ptxt   = document.getElementById(`ptxt-${id}`);
+  const viol   = document.getElementById(`viol-${id}`);
+
+  if (sdot)   sdot.className   = `sdot ${st}`;
+  if (slabel) { slabel.className = `slabel ${st}`; slabel.textContent = sl; }
+  if (prog)   prog.style.width  = pct + '%';
+  if (ptxt)   ptxt.textContent  = `${s.answered||0}/${s.total||0} (${pct}%)`;
+  if (viol)   { viol.className = `tile-viol ${vc>0?'dirty':'clean'}`; viol.textContent = vc>0?'⚠ '+vc:'✓ Clean'; }
+}
+
+/* ── FOCUS PANEL ── */
+function focusTile(id) {
+  focusedId = id;
+  document.querySelectorAll('.tile').forEach(t =>
+    t.classList.toggle('active-tile', t.dataset.id === id));
+  switchPanel('focus');
+  renderFocusPanel(id);
+}
+
+function renderFocusPanel(id) {
+  const entry = students[id];
+  if (!entry) return;
+  const s   = entry.session;
+  const st  = s.faceStatus || 'ok';
+  const sc  = st==='ok' ? 'var(--green)' : st==='warn' ? 'var(--amber)' : 'var(--red)';
+  const sl  = st==='ok' ? 'All clear'   : st==='warn' ? 'Warning'      : 'Violation!';
+  const vc  = s.violations || 0;
+  const tl  = s.timeLeft   || 0;
+  const tm  = pad(Math.floor(tl/60)) + ':' + pad(tl%60);
+  const ini = initials(s.name);
+  const email = s.email || s.studentId || '';
+
+  document.getElementById('focus-content').innerHTML = `
+    <div class="focus-view">
+      <div class="focus-video-wrap">
+        <div class="focus-fallback" id="focus-fallback">
+          <div class="focus-initials">${ini}</div>
+          <div class="focus-no-cam-txt">Waiting for webcam frame…</div>
+        </div>
+        <canvas class="focus-canvas" id="focus-canvas" width="320" height="240"></canvas>
+        <div class="focus-name-bar">
+          <div class="focus-student-name">${s.name}</div>
+          <div class="focus-student-email">${email}</div>
+        </div>
+        <div class="focus-status-overlay" id="focus-status" style="color:${sc};">
+          <div class="sdot ${st}"></div>&nbsp;${sl}
+        </div>
+        <div class="focus-live-badge" id="focus-live"><div class="rec-dot"></div>LIVE</div>
+        <div class="focus-fps" id="focus-fps-txt"></div>
+      </div>
+
+      <div class="focus-stats">
+        <div class="fstat"><div class="fstat-label">Violations</div><div class="fstat-val ${vc>0?'red':'green'}">${vc}</div></div>
+        <div class="fstat"><div class="fstat-label">Progress</div><div class="fstat-val">${s.progress||0}%</div></div>
+        <div class="fstat"><div class="fstat-label">Answered</div><div class="fstat-val">${s.answered||0}/${s.total||0}</div></div>
+        <div class="fstat"><div class="fstat-label">Time left</div><div class="fstat-val ${tl<300?'red':tl<600?'amber':''}">${tm}</div></div>
+      </div>
+
+      <div class="focus-actions">
+        <button class="faction fa-snap" onclick="captureSnapshot('${id}',null)">📸 Snap</button>
+        <button class="faction fa-warn" onclick="warnStudent('${id}')">⚠ Warn</button>
+        <button class="faction fa-kick" onclick="removeStudent('${id}')">🚫 Remove</button>
+      </div>
+
+      <div class="focus-exam-info">
+        <div class="fei-title">Exam details</div>
+        <div class="fei-row"><span>Exam</span><span>${s.examTitle||'—'}</span></div>
+        <div class="fei-row"><span>Subject</span><span>${s.subject||'—'}</span></div>
+        <div class="fei-row"><span>Question</span><span>Q${s.currentQ||1} of ${s.total||0}</span></div>
+        <div class="fei-row"><span>Face</span><span style="color:${sc}">${s.faceMessage||'—'}</span></div>
+        <div class="fei-row"><span>Heartbeat</span><span style="font-family:var(--mono);font-size:10px;">${new Date(s.lastHeartbeat).toLocaleTimeString()}</span></div>
+      </div>
+    </div>`;
+
+  // Wire canvas ref for live drawing
+  students[id].fCanvas = document.getElementById('focus-canvas');
+
+  // If we already have a fresh frame, draw it immediately
+  const img = imgPool[id];
+  if (img && img.complete && img.src && students[id].lastFrameTs &&
+      Date.now() - students[id].lastFrameTs < FRAME_STALE_MS) {
+    const fc = students[id].fCanvas;
+    if (fc) fc.getContext('2d').drawImage(img, 0, 0, fc.width, fc.height);
+    document.getElementById('focus-fallback')?.classList.add('hidden');
+    document.getElementById('focus-live')?.classList.add('on');
+    updateFocusFps(id);
+  }
+}
+
+function updateFocusFps(id) {
+  const el = document.getElementById('focus-fps-txt');
+  if (el && students[id]) el.textContent = `${students[id].fps||'?'} fps`;
+}
+
+/* ── VIOLATION LOG ── */
+function addViolation(s, msg) {
+  totalViol++;
+  logEntries.unshift({ name: s.name, email: s.email||'', msg, type: s.faceStatus, time: new Date() });
+  renderViolationLog();
+  showToast(s.faceStatus==='err' ? 'err' : 'warn', s.name, msg);
+  updateCounts();
+}
+
+function renderViolationLog() {
+  const list  = document.getElementById('vlog-list');
+  const badge = document.getElementById('vbadge');
+  if (!logEntries.length) {
+    list.innerHTML = '<div class="vlog-empty"><div style="font-size:28px;margin-bottom:8px">✅</div>All students clear</div>';
+    badge.style.display = 'none'; return;
+  }
+  badge.style.display = 'inline';
+  badge.textContent   = logEntries.length;
+  list.innerHTML = logEntries.map(e => `
+    <div class="vlog-item">
+      <div class="vlog-icon ${e.type==='err'?'err':'warn'}">${e.type==='err'?'👥':'⚠️'}</div>
+      <div class="vlog-content">
+        <div class="vlog-who">${e.name}</div>
+        <div class="vlog-msg">${e.msg}</div>
+        <div class="vlog-time">${e.time.toLocaleTimeString()}</div>
+      </div>
+    </div>`).join('');
+}
+function clearLog() { logEntries = []; renderViolationLog(); }
+
+/* ── SNAPSHOTS ── */
+function captureSnapshot(id, event) {
+  if (event) event.stopPropagation();
+  const entry = students[id];
+  if (!entry) { showToast('warn','Snapshot','Student not active'); return; }
+  const s   = entry.session;
+  const img = imgPool[id];
+
+  // Use a canvas to capture current frame
+  const c   = document.createElement('canvas');
+  c.width   = 320; c.height = 240;
+  const ctx = c.getContext('2d');
+
+  const hasFreshFrame = img && img.complete && img.src &&
+    entry.lastFrameTs && Date.now() - entry.lastFrameTs < FRAME_STALE_MS;
+
+  if (hasFreshFrame) {
+    ctx.drawImage(img, 0, 0, 320, 240);
+    // Name bar
+    ctx.fillStyle = 'rgba(0,0,0,.7)';
+    ctx.fillRect(0, 200, 320, 40);
+    ctx.fillStyle = '#f0effe'; ctx.font = 'bold 12px DM Sans,sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(s.name, 10, 217);
+    ctx.fillStyle = '#9b97b8'; ctx.font = '9px JetBrains Mono,monospace';
+    ctx.fillText(new Date().toLocaleTimeString(), 10, 231);
+  } else {
+    // Avatar fallback
+    ctx.fillStyle = '#1a1a26'; ctx.fillRect(0,0,320,240);
+    const ini = initials(s.name);
+    ctx.beginPath(); ctx.arc(160,95,38,0,Math.PI*2);
+    ctx.fillStyle = '#7c6bff'; ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px Syne,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(ini, 160, 95);
+    ctx.fillStyle = '#f0effe'; ctx.font = '13px DM Sans,sans-serif'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(s.name, 160, 152);
+    ctx.fillStyle = '#5c5878'; ctx.font = '10px JetBrains Mono,monospace';
+    ctx.fillText(s.email||s.studentId||'', 160, 168);
+    ctx.fillText(new Date().toLocaleTimeString(), 160, 185);
+  }
+
+  const isViol = s.faceStatus !== 'ok';
+  snapshots.unshift({ id, name: s.name, dataUrl: c.toDataURL('image/jpeg',.85), time: new Date(), violation: isViol });
+  renderSnapshots();
+  switchPanel('snaps');
+  showToast('ok', hasFreshFrame ? 'Snapshot captured' : 'Snapshot saved (no frame)', s.name);
+}
+
+function captureAll() { Object.keys(students).forEach(id => captureSnapshot(id, null)); }
+
+function renderSnapshots() {
+  const grid  = document.getElementById('snaps-grid');
+  const empty = document.getElementById('snaps-empty');
+  if (!snapshots.length) { empty.style.display='block'; grid.innerHTML=''; return; }
+  empty.style.display = 'none';
+  grid.innerHTML = snapshots.slice(0,20).map(s => `
+    <div class="snap-thumb">
+      <img src="${s.dataUrl}" alt="${s.name}">
+      <span class="snap-badge ${s.violation?'viol':'ok'}">${s.violation?'⚠':'✓'}</span>
+      <div class="snap-meta">
+        <span class="snap-who">${s.name}</span>
+        <span class="snap-ts">${s.time.toLocaleTimeString()}</span>
+      </div>
+    </div>`).join('');
+}
+
+/* ── ACTIONS ── */
+function warnStudent(id) {
+  const entry = students[id]; if (!entry) return;
+  addViolation(entry.session, 'Manual warning issued by proctor');
+}
+
+function removeStudent(id) {
+  const entry = students[id]; if (!entry) return;
+  const name = entry.session.name;
+  if (confirm(`Hide ${name} from monitor view?`)) {
+    delete students[id]; delete imgPool[id]; delete prevFaceStatus[id];
+    renderGrid(); updateCounts();
+    showToast('err', 'Student hidden', name);
+    if (focusedId === id) { focusedId = null; resetFocusPanel(); }
+  }
+}
+
+function resetFocusPanel() {
+  document.getElementById('focus-content').innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;text-align:center;color:var(--t3);gap:10px;">
+      <div style="font-size:32px;">👆</div>
+      <div style="font-size:13px;line-height:1.6;">Click any student tile<br>to see their live details</div>
+    </div>`;
+}
+
+/* ── UTILS ── */
+function initials(name) {
+  return (name||'').split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,2)||'??';
+}
+function pad(n) { return String(n).padStart(2,'0'); }
+
+function updateCounts() {
+  const ids     = Object.keys(students);
+  const flagged = ids.filter(id => students[id].session?.faceStatus !== 'ok').length;
+  document.getElementById('count-badge').textContent = `${ids.length} online`;
+  const fb = document.getElementById('flagged-badge');
+  if (flagged > 0) { fb.style.display='inline'; fb.textContent=`• ${flagged} flagged`; }
+  else fb.style.display='none';
+  document.getElementById('sb-total').textContent = `${totalViol} violation${totalViol!==1?'s':''} total`;
+  document.getElementById('sb-status').textContent = ids.length>0 ? 'Monitoring active' : 'Waiting for students';
+}
+
+function setGrid(n) {
+  const g = document.querySelector('.student-grid');
+  if (g) g.className = `student-grid${n!==3?' cols'+n:''}`;
+  [2,3,4].forEach(i => document.getElementById(`g${i}`)?.classList.toggle('active', i===n));
+}
+
+function switchPanel(name) {
+  ['focus','log','snaps'].forEach(p => {
+    document.getElementById(`ps-${p}`)?.classList.toggle('active', p===name);
+    document.getElementById(`ptab-${p}`)?.classList.toggle('active', p===name);
+  });
+}
+
+function showToast(type, title, msg) {
+  const c = document.getElementById('toasts'), t = document.createElement('div');
+  t.className = `toast t-${type}`;
+  t.innerHTML = `<span class="toast-icon">${{err:'🚨',warn:'⚠️',ok:'✅'}[type]||'ℹ️'}</span>
+    <div class="toast-body"><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>
+    <button class="toast-x" onclick="this.closest('.toast').remove()">✕</button>`;
+  c.appendChild(t);
+  setTimeout(() => { t.classList.add('tout'); setTimeout(() => t.remove(), 300); }, 4500);
+}
+
+function endSession() {
+  if (confirm('End the proctoring session?')) {
+    showToast('ok','Session ended','Redirecting…');
+    setTimeout(() => window.location.href = 'proctor.html', 1200);
+  }
+}
+
+/* ── SESSION TIMER ── */
+setInterval(() => {
+  const e = Math.floor((Date.now()-sessionStart)/1000);
+  document.getElementById('session-timer').textContent = pad(Math.floor(e/60))+':'+pad(e%60);
+}, 1000);
+
+/* ── BOOT ── */
+pollSessions();               // immediate first session scan
+setInterval(pollSessions, 3000);  // metadata refresh every 3s
+</script>
+</body>
+</html>

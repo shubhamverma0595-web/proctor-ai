@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProctorAI — Question Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface2: #1a1a26;
+  --surface3: #20202e;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --accent: #7c6bff;
+  --accent2: #a78bfa;
+  --accent-glow: rgba(124,107,255,0.25);
+  --text: #f0effe;
+  --text2: #9b97b8;
+  --text3: #5c5878;
+  --green: #34d399;
+  --green-bg: rgba(52,211,153,0.1);
+  --red: #f87171;
+  --red-bg: rgba(248,113,113,0.1);
+  --amber: #fbbf24;
+  --amber-bg: rgba(251,191,36,0.1);
+  --mono: 'JetBrains Mono', monospace;
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* NAV */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; height: 56px; flex-shrink: 0;
+  background: var(--surface); border-bottom: 1px solid var(--border); z-index: 10;
+}
+.nav-left  { display: flex; align-items: center; gap: 14px; }
+.nav-logo  { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 16px; font-weight: 700; text-decoration: none; color: var(--text); }
+.nav-logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.nav-logo span { color: var(--accent2); }
+.nav-sep   { width: 1px; height: 18px; background: var(--border2); }
+.nav-page  { font-size: 13px; color: var(--text2); font-weight: 500; }
+.nav-right { display: flex; align-items: center; gap: 8px; }
+.btn-sm { padding: 7px 14px; border-radius: 8px; font-size: 13px; font-family: var(--font-body); font-weight: 500; cursor: pointer; border: 1px solid var(--border2); background: none; color: var(--text2); transition: all 0.15s; }
+.btn-sm:hover { border-color: var(--accent); color: var(--accent2); }
+.btn-sm.primary { background: var(--accent); border-color: var(--accent); color: white; }
+.btn-sm.primary:hover { background: #6b5ce7; }
+
+/* LAYOUT */
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+/* LEFT CONFIG PANEL */
+.config-panel {
+  width: 340px; flex-shrink: 0;
+  background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+
+.config-section { padding: 20px; border-bottom: 1px solid var(--border); }
+.config-section:last-child { border-bottom: none; }
+.config-title {
+  font-size: 11px; font-weight: 500; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 14px;
+}
+
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+
+.field input[type="text"],
+.field textarea,
+.field select {
+  width: 100%; padding: 10px 12px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-family: var(--font-body); font-size: 14px; outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus, .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+.field input::placeholder, .field textarea::placeholder { color: var(--text3); }
+.field textarea { min-height: 70px; resize: vertical; }
+
+/* COUNT STEPPER */
+.stepper { display: flex; align-items: center; gap: 8px; }
+.step-btn {
+  width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--border2);
+  background: var(--surface2); color: var(--text2); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-family: var(--font-display);
+  transition: all 0.15s;
+}
+.step-btn:hover { border-color: var(--accent); color: var(--accent2); }
+.step-display {
+  flex: 1; text-align: center;
+  font-family: var(--font-display); font-size: 22px; font-weight: 700;
+  color: var(--accent2);
+}
+.step-label { font-size: 11px; color: var(--text3); text-align: center; margin-top: 2px; }
+
+/* DIFFICULTY PILLS */
+.diff-pills { display: flex; gap: 6px; }
+.diff-pill {
+  flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border);
+  background: none; color: var(--text3); font-family: var(--font-body); font-size: 12px;
+  cursor: pointer; text-align: center; transition: all 0.15s; font-weight: 500;
+}
+.diff-pill:hover { border-color: var(--border2); color: var(--text2); }
+.diff-pill.active.easy   { background: var(--green-bg);  border-color: rgba(52,211,153,0.4); color: var(--green); }
+.diff-pill.active.medium { background: var(--amber-bg);  border-color: rgba(251,191,36,0.4); color: var(--amber); }
+.diff-pill.active.hard   { background: var(--red-bg);    border-color: rgba(248,113,113,0.4); color: var(--red); }
+
+/* TYPE CHIPS */
+.type-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.type-chip {
+  padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: none; color: var(--text3); font-family: var(--font-body); font-size: 12px;
+  cursor: pointer; transition: all 0.15s;
+}
+.type-chip:hover { border-color: var(--border2); color: var(--text2); }
+.type-chip.active { background: rgba(124,107,255,0.15); border-color: rgba(124,107,255,0.4); color: var(--accent2); }
+
+/* QUICK TOPICS */
+.quick-topics { display: flex; flex-wrap: wrap; gap: 6px; }
+.qtopic {
+  padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text2); font-size: 12px; cursor: pointer;
+  transition: all 0.15s;
+}
+.qtopic:hover { border-color: var(--accent); color: var(--accent2); }
+
+/* GENERATE BUTTON */
+.gen-btn {
+  width: 100%; padding: 13px; border-radius: 10px; border: none;
+  background: var(--accent); color: white; font-family: var(--font-display);
+  font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  letter-spacing: 0.02em;
+}
+.gen-btn:hover { background: #6b5ce7; box-shadow: 0 8px 30px var(--accent-glow); }
+.gen-btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+
+/* RIGHT: OUTPUT PANEL */
+.output-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.output-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  background: var(--surface);
+}
+.output-info { display: flex; align-items: center; gap: 10px; }
+.q-count-badge {
+  background: rgba(124,107,255,0.15); border: 1px solid rgba(124,107,255,0.3);
+  color: var(--accent2); border-radius: 100px; padding: 3px 10px; font-size: 12px; font-weight: 500;
+}
+.output-actions { display: flex; align-items: center; gap: 8px; }
+
+.view-tabs { display: flex; background: var(--surface2); border-radius: 8px; padding: 3px; gap: 2px; }
+.vtab {
+  padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
+  border: none; background: none; color: var(--text3); cursor: pointer; font-family: var(--font-body);
+  transition: all 0.15s;
+}
+.vtab.active { background: var(--surface3); color: var(--text); }
+
+.output-main { flex: 1; overflow-y: auto; padding: 20px; }
+
+/* EMPTY / LOADING / ERROR STATES */
+.state-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 400px; gap: 12px; text-align: center; color: var(--text3);
+}
+.state-icon  { font-size: 48px; margin-bottom: 8px; }
+.state-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--text2); }
+.state-sub   { font-size: 14px; max-width: 300px; line-height: 1.6; }
+
+/* PROGRESS BAR (during generation) */
+.gen-progress { max-width: 320px; width: 100%; }
+.progress-bar {
+  height: 4px; background: var(--surface2); border-radius: 100px; overflow: hidden; margin-top: 16px;
+}
+.progress-fill {
+  height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 100px; width: 0%;
+  transition: width 0.4s ease;
+}
+.progress-label { font-size: 12px; color: var(--text3); margin-top: 8px; font-family: var(--mono); }
+
+/* QUESTION CARDS */
+.q-list { display: flex; flex-direction: column; gap: 12px; }
+
+.q-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  overflow: hidden; transition: all 0.2s;
+}
+.q-card:hover { border-color: var(--border2); }
+.q-card.selected { border-color: var(--accent); }
+
+.q-card-header {
+  display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+  border-bottom: 1px solid var(--border); cursor: pointer;
+}
+.q-num {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: rgba(124,107,255,0.12); border: 1px solid rgba(124,107,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--accent2);
+  flex-shrink: 0;
+}
+.q-text-preview { flex: 1; font-size: 14px; line-height: 1.4; font-weight: 400; }
+.q-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.q-action-btn {
+  width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border);
+  background: none; color: var(--text3); font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.q-action-btn:hover { border-color: var(--border2); color: var(--text); }
+.q-action-btn.del:hover { border-color: var(--red); color: var(--red); }
+
+.q-card-body { padding: 14px 16px; }
+
+.options-grid { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+.opt-row {
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.opt-key {
+  width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; font-family: var(--font-display);
+  border: 1px solid var(--border2); background: var(--surface2); color: var(--text3);
+  margin-top: 1px;
+}
+.opt-key.correct { background: var(--green-bg); border-color: rgba(52,211,153,0.4); color: var(--green); }
+.opt-text { font-size: 13px; color: var(--text2); line-height: 1.5; flex: 1; }
+.opt-text.correct { color: var(--green); }
+
+.correct-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--green-bg); border: 1px solid rgba(52,211,153,0.25);
+  color: var(--green); border-radius: 6px; padding: 4px 10px;
+  font-size: 11px; font-weight: 500; margin-bottom: 10px;
+}
+
+/* EDIT MODE */
+.q-edit-area {
+  display: none; padding: 14px 16px; border-top: 1px solid var(--border);
+  background: var(--surface2);
+}
+.q-edit-area.open { display: block; }
+.edit-field { margin-bottom: 10px; }
+.edit-field label { font-size: 11px; color: var(--text3); display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+.edit-field input, .edit-field select {
+  width: 100%; padding: 8px 10px; background: var(--surface3); border: 1px solid var(--border);
+  border-radius: 7px; color: var(--text); font-family: var(--font-body); font-size: 13px; outline: none;
+}
+.edit-field input:focus { border-color: var(--accent); }
+.edit-save {
+  padding: 7px 16px; background: var(--accent); border: none; border-radius: 7px;
+  color: white; font-family: var(--font-display); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: background 0.2s;
+}
+.edit-save:hover { background: #6b5ce7; }
+.edit-cancel { padding: 7px 12px; background: none; border: 1px solid var(--border); border-radius: 7px; color: var(--text3); font-family: var(--font-body); font-size: 12px; cursor: pointer; margin-left: 6px; }
+
+/* TYPE BADGE */
+.type-badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+.tb-mcq  { background: rgba(124,107,255,0.1); color: var(--accent2); }
+.tb-tf   { background: var(--amber-bg); color: var(--amber); }
+.tb-short{ background: var(--green-bg); color: var(--green); }
+
+/* DIFF BADGE */
+.diff-badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 500; }
+.db-easy   { background: var(--green-bg); color: var(--green); }
+.db-medium { background: var(--amber-bg); color: var(--amber); }
+.db-hard   { background: var(--red-bg); color: var(--red); }
+
+/* EXPORT PANEL */
+.export-panel {
+  display: none; padding: 20px; font-family: var(--mono); font-size: 12px; color: var(--text2);
+  background: var(--surface2); border-radius: 10px; white-space: pre-wrap; line-height: 1.7;
+  border: 1px solid var(--border); max-height: 600px; overflow-y: auto;
+}
+.export-panel.visible { display: block; }
+
+/* STATS ROW */
+.stats-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.mini-stat {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 14px; display: flex; align-items: center; gap: 8px;
+}
+.mini-stat-val { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
+.mini-stat-label { font-size: 12px; color: var(--text2); }
+
+/* Spinner */
+.spin { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: rot 0.7s linear infinite; }
+@keyframes rot { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <a class="nav-logo" href="proctor.html">
+      <div class="nav-logo-icon">🎯</div>
+      Proctor<span>AI</span>
+    </a>
+    <div class="nav-sep"></div>
+    <span class="nav-page">AI Question Generator</span>
+  </div>
+  <div class="nav-right">
+    <button class="btn-sm" onclick="clearAll()">🗑 Clear all</button>
+    <button class="btn-sm" onclick="exportJSON()">⬇ Export JSON</button>
+    <button class="btn-sm" onclick="exportText()">⬇ Export Text</button>
+    <button class="btn-sm primary" onclick="saveToTest()" id="save-btn" style="display:none;">💾 Save to test</button>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- LEFT CONFIG -->
+  <div class="config-panel">
+
+    <div class="config-section">
+      <div class="config-title">Topic</div>
+      <div class="field">
+        <label>Subject / topic</label>
+        <input type="text" id="cfg-topic" placeholder="e.g. Binary Trees, Photosynthesis…">
+      </div>
+      <div class="field">
+        <label>Additional context <span style="color:var(--text3);font-weight:400;">(optional)</span></label>
+        <textarea id="cfg-context" placeholder="Add any notes, specific subtopics, or curriculum guidelines…"></textarea>
+      </div>
+      <div class="field">
+        <label>Quick topics</label>
+        <div class="quick-topics" id="quick-topics">
+          <span class="qtopic" onclick="setTopic('Data Structures')">Data Structures</span>
+          <span class="qtopic" onclick="setTopic('Operating Systems')">Operating Systems</span>
+          <span class="qtopic" onclick="setTopic('Python Programming')">Python</span>
+          <span class="qtopic" onclick="setTopic('Database SQL')">SQL</span>
+          <span class="qtopic" onclick="setTopic('Machine Learning Basics')">Machine Learning</span>
+          <span class="qtopic" onclick="setTopic('Computer Networks')">Networks</span>
+          <span class="qtopic" onclick="setTopic('Linear Algebra')">Linear Algebra</span>
+          <span class="qtopic" onclick="setTopic('Organic Chemistry')">Organic Chem</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-title">Question count</div>
+      <div class="stepper">
+        <button class="step-btn" onclick="changeCount(-1)">−</button>
+        <div>
+          <div class="step-display" id="count-display">10</div>
+          <div class="step-label">questions</div>
+        </div>
+        <button class="step-btn" onclick="changeCount(+1)">+</button>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-title">Difficulty</div>
+      <div class="diff-pills">
+        <button class="diff-pill easy active" onclick="setDiff('Easy')" id="diff-easy">🟢 Easy</button>
+        <button class="diff-pill medium" onclick="setDiff('Medium')" id="diff-medium">🟡 Medium</button>
+        <button class="diff-pill hard" onclick="setDiff('Hard')" id="diff-hard">🔴 Hard</button>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-title">Question types</div>
+      <div class="type-chips">
+        <button class="type-chip active" onclick="toggleType('MCQ')" id="type-MCQ">Multiple Choice</button>
+        <button class="type-chip" onclick="toggleType('TF')"  id="type-TF">True / False</button>
+        <button class="type-chip" onclick="toggleType('SA')"  id="type-SA">Short Answer</button>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-title">Language</div>
+      <div class="field" style="margin:0;">
+        <select id="cfg-lang">
+          <option>English</option>
+          <option>Hindi</option>
+          <option>Spanish</option>
+          <option>French</option>
+          <option>German</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <button class="gen-btn" onclick="generate()" id="gen-btn">
+        <span id="gen-btn-icon">✦</span>
+        <span id="gen-btn-text">Generate Questions</span>
+      </button>
+    </div>
+
+  </div><!-- /config-panel -->
+
+  <!-- RIGHT OUTPUT -->
+  <div class="output-panel">
+
+    <div class="output-toolbar">
+      <div class="output-info">
+        <span style="font-size:14px;font-weight:500;" id="output-title">Questions</span>
+        <span class="q-count-badge" id="q-count-badge" style="display:none;">0 questions</span>
+      </div>
+      <div class="output-actions">
+        <div class="view-tabs">
+          <button class="vtab active" onclick="setOutputView('cards')" id="vtab-cards">Cards</button>
+          <button class="vtab"        onclick="setOutputView('export')" id="vtab-export">Raw JSON</button>
+        </div>
+        <button class="btn-sm" onclick="selectAll()" id="sel-all-btn" style="display:none;">Select all</button>
+        <button class="btn-sm" onclick="deleteSelected()" id="del-sel-btn" style="display:none;border-color:rgba(248,113,113,0.3);color:var(--red);">Delete selected</button>
+      </div>
+    </div>
+
+    <div class="output-main" id="output-main">
+      <!-- empty state -->
+      <div class="state-screen" id="empty-state">
+        <div class="state-icon">🧠</div>
+        <div class="state-title">Ready to generate</div>
+        <div class="state-sub">Configure your topic, difficulty, and count on the left, then hit Generate.</div>
+      </div>
+
+      <!-- loading state -->
+      <div class="state-screen" id="loading-state" style="display:none;">
+        <div class="state-icon" id="loading-emoji">⚡</div>
+        <div class="state-title" id="loading-title">Generating questions…</div>
+        <div class="gen-progress">
+          <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+          <div class="progress-label" id="progress-label">Calling GPT-4o-mini…</div>
+        </div>
+      </div>
+
+      <!-- error state -->
+      <div class="state-screen" id="error-state" style="display:none;">
+        <div class="state-icon">⚠️</div>
+        <div class="state-title">Generation failed</div>
+        <div class="state-sub" id="error-msg">Could not reach the server. Make sure Flask is running on port 5000 and your OpenRouter API key is set.</div>
+        <button onclick="generate()" style="margin-top:12px;padding:9px 20px;background:var(--accent);border:none;border-radius:8px;color:white;font-family:var(--font-display);font-size:13px;font-weight:600;cursor:pointer;">Try again</button>
+      </div>
+
+      <!-- results -->
+      <div id="results-area" style="display:none;">
+        <div class="stats-row" id="stats-row"></div>
+        <div class="q-list" id="q-list"></div>
+      </div>
+
+      <!-- export view -->
+      <div id="export-area" style="display:none;">
+        <pre class="export-panel visible" id="export-panel"></pre>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = '';
+
+let qCount  = 10;
+let difficulty = 'Easy';
+let selectedTypes = new Set(['MCQ']);
+let questions = [];
+let selectedQs = new Set();
+let outputView = 'cards';
+
+// ---- Stepper ----
+function changeCount(delta) {
+  qCount = Math.max(1, Math.min(30, qCount + delta));
+  document.getElementById('count-display').textContent = qCount;
+}
+
+// ---- Difficulty ----
+function setDiff(d) {
+  difficulty = d;
+  ['Easy','Medium','Hard'].forEach(v => {
+    const btn = document.getElementById(`diff-${v.toLowerCase()}`);
+    btn.classList.toggle('active', v === d);
+  });
+}
+
+// ---- Type chips ----
+function toggleType(t) {
+  const btn = document.getElementById(`type-${t}`);
+  if (selectedTypes.has(t) && selectedTypes.size > 1) {
+    selectedTypes.delete(t);
+    btn.classList.remove('active');
+  } else {
+    selectedTypes.add(t);
+    btn.classList.add('active');
+  }
+}
+
+// ---- Quick topic ----
+function setTopic(t) {
+  document.getElementById('cfg-topic').value = t;
+  document.getElementById('cfg-topic').focus();
+}
+
+// ---- Output view ----
+function setOutputView(v) {
+  outputView = v;
+  document.getElementById('vtab-cards').classList.toggle('active', v === 'cards');
+  document.getElementById('vtab-export').classList.toggle('active', v === 'export');
+
+  if (questions.length === 0) return;
+
+  document.getElementById('results-area').style.display = v === 'cards'  ? 'block' : 'none';
+  document.getElementById('export-area').style.display  = v === 'export' ? 'block' : 'none';
+}
+
+// ---- Generate ----
+async function generate() {
+  const topic   = document.getElementById('cfg-topic').value.trim();
+  const context = document.getElementById('cfg-context').value.trim();
+  const lang    = document.getElementById('cfg-lang').value;
+
+  if (!topic) {
+    document.getElementById('cfg-topic').focus();
+    document.getElementById('cfg-topic').style.borderColor = 'var(--red)';
+    setTimeout(() => document.getElementById('cfg-topic').style.borderColor = '', 1500);
+    return;
+  }
+
+  showState('loading');
+  animateProgress();
+
+  const typeList = [...selectedTypes].join(', ');
+  const prompt = buildPrompt(topic, context, qCount, difficulty, typeList, lang);
+
+  try {
+    const res = await fetch(`${API}/api/questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+    });
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    questions = parseQuestions(text);
+    renderResults();
+  } catch (e) {
+    showState('error');
+    document.getElementById('error-msg').textContent =
+      e.message.includes('fetch') ?
+      'Cannot reach Flask server at localhost:5000. Make sure it\'s running.' : e.message;
+  }
+}
+
+function buildPrompt(topic, context, count, diff, types, lang) {
+  const typeInstructions = {
+    'MCQ':  `Multiple choice questions with exactly 4 options (A, B, C, D) and one correct answer.`,
+    'TF':   `True/False questions with options ["A) True", "B) False"] and answer "A" or "B".`,
+    'SA':   `Short answer questions. For these, use options: ["No options - open answer"] and answer: "See explanation".`
+  };
+  const typeDesc = [...selectedTypes].map(t => typeInstructions[t] || '').join(' ');
+
+  return `Generate exactly ${count} ${diff} exam questions about "${topic}" in ${lang}.
+${context ? `Additional context: ${context}` : ''}
+Question types to include: ${types}.
+${typeDesc}
+
+Return ONLY a valid JSON array. No markdown, no explanation, no preamble:
+[{
+  "type": "MCQ" | "TF" | "SA",
+  "question": "Question text here",
+  "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+  "answer": "A",
+  "explanation": "Brief explanation of the correct answer"
+}]`;
+}
+
+function parseQuestions(text) {
+  const clean = text.replace(/```json|```/g, '').trim();
+  const parsed = JSON.parse(clean);
+  return parsed.map((q, i) => ({ ...q, id: `q_${Date.now()}_${i}` }));
+}
+
+// ---- Render results ----
+function renderResults() {
+  showState('results');
+  renderStats();
+  renderQList();
+  renderExport();
+  document.getElementById('q-count-badge').textContent = `${questions.length} questions`;
+  document.getElementById('q-count-badge').style.display = 'inline-flex';
+  document.getElementById('sel-all-btn').style.display = 'inline-flex';
+  document.getElementById('save-btn').style.display = 'inline-flex';
+  setOutputView('cards');
+}
+
+function renderStats() {
+  const byType  = {};
+  const byDiff  = {};
+  questions.forEach(q => {
+    byType[q.type || 'MCQ'] = (byType[q.type || 'MCQ'] || 0) + 1;
+  });
+
+  const typeColors = { MCQ:'var(--accent2)', TF:'var(--amber)', SA:'var(--green)' };
+  const typeLabels = { MCQ:'MCQ', TF:'True/False', SA:'Short Answer' };
+
+  document.getElementById('stats-row').innerHTML =
+    Object.entries(byType).map(([t, n]) => `
+      <div class="mini-stat">
+        <div class="mini-stat-val" style="color:${typeColors[t] || 'var(--text)'}">${n}</div>
+        <div class="mini-stat-label">${typeLabels[t] || t}</div>
+      </div>
+    `).join('') + `
+    <div class="mini-stat">
+      <div class="mini-stat-val">${questions.length}</div>
+      <div class="mini-stat-label">Total</div>
+    </div>`;
+}
+
+function renderQList() {
+  const list = document.getElementById('q-list');
+  list.innerHTML = questions.map((q, i) => {
+    const keys = ['A','B','C','D'];
+    const correctKey = (q.answer || 'A').replace(/[^A-D]/g,'');
+    const typeBadge = `<span class="type-badge tb-${(q.type||'MCQ').toLowerCase()}">${q.type || 'MCQ'}</span>`;
+    const diffBadge = `<span class="diff-badge db-${difficulty.toLowerCase()}">${difficulty}</span>`;
+
+    const optionsHtml = (q.options || []).map((opt, oi) => {
+      const k = keys[oi] || String.fromCharCode(65+oi);
+      const isCorrect = k === correctKey;
+      const cleanOpt = opt.replace(/^[A-D]\)\s*/,'');
+      return `<div class="opt-row">
+        <div class="opt-key ${isCorrect ? 'correct' : ''}">${k}</div>
+        <div class="opt-text ${isCorrect ? 'correct' : ''}">${cleanOpt}</div>
+      </div>`;
+    }).join('');
+
+    return `
+    <div class="q-card" id="qcard-${q.id}">
+      <div class="q-card-header" onclick="toggleExpand('${q.id}')">
+        <div class="q-num">${i+1}</div>
+        <div class="q-text-preview">${q.question}</div>
+        <div class="q-card-actions" onclick="event.stopPropagation()">
+          ${typeBadge} ${diffBadge}
+          <button class="q-action-btn" onclick="toggleEdit('${q.id}')" title="Edit">✏️</button>
+          <button class="q-action-btn del" onclick="deleteQ('${q.id}')" title="Delete">🗑</button>
+        </div>
+      </div>
+      <div class="q-card-body" id="body-${q.id}" style="display:none;">
+        <div class="correct-badge">✓ Correct answer: ${correctKey}</div>
+        <div class="options-grid">${optionsHtml}</div>
+        ${q.explanation ? `<div style="font-size:12px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:10px 12px;line-height:1.5;border-left:3px solid var(--accent);">
+          <span style="font-weight:500;color:var(--text);">Explanation:</span> ${q.explanation}
+        </div>` : ''}
+      </div>
+      <div class="q-edit-area" id="edit-${q.id}">
+        <div class="edit-field">
+          <label>Question text</label>
+          <input type="text" id="eq-text-${q.id}" value="${q.question.replace(/"/g,'&quot;')}">
+        </div>
+        <div class="edit-field">
+          <label>Correct answer</label>
+          <select id="eq-ans-${q.id}">
+            ${['A','B','C','D'].map(k => `<option value="${k}" ${k===correctKey?'selected':''}>${k}</option>`).join('')}
+          </select>
+        </div>
+        <div class="edit-field">
+          <label>Explanation</label>
+          <input type="text" id="eq-exp-${q.id}" value="${(q.explanation||'').replace(/"/g,'&quot;')}">
+        </div>
+        <button class="edit-save" onclick="saveEdit('${q.id}')">Save changes</button>
+        <button class="edit-cancel" onclick="toggleEdit('${q.id}')">Cancel</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Auto-expand first question
+  if (questions.length > 0) toggleExpand(questions[0].id);
+}
+
+function toggleExpand(id) {
+  const body = document.getElementById(`body-${id}`);
+  if (body) body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleEdit(id) {
+  const edit = document.getElementById(`edit-${id}`);
+  if (edit) edit.classList.toggle('open');
+}
+
+function saveEdit(id) {
+  const q = questions.find(q => q.id === id);
+  if (!q) return;
+  q.question    = document.getElementById(`eq-text-${id}`).value;
+  q.answer      = document.getElementById(`eq-ans-${id}`).value;
+  q.explanation = document.getElementById(`eq-exp-${id}`).value;
+  renderQList();
+  renderExport();
+}
+
+function deleteQ(id) {
+  questions = questions.filter(q => q.id !== id);
+  document.getElementById(`qcard-${id}`)?.remove();
+  renderStats();
+  renderExport();
+  document.getElementById('q-count-badge').textContent = `${questions.length} questions`;
+}
+
+function selectAll() {
+  questions.forEach(q => selectedQs.add(q.id));
+  document.querySelectorAll('.q-card').forEach(c => c.classList.add('selected'));
+  document.getElementById('del-sel-btn').style.display = 'inline-flex';
+}
+
+function deleteSelected() {
+  questions = questions.filter(q => !selectedQs.has(q.id));
+  selectedQs.clear();
+  renderQList();
+  renderStats();
+  renderExport();
+  document.getElementById('del-sel-btn').style.display = 'none';
+  document.getElementById('q-count-badge').textContent = `${questions.length} questions`;
+}
+
+function renderExport() {
+  document.getElementById('export-panel').textContent =
+    JSON.stringify(questions.map(({ id, ...rest }) => rest), null, 2);
+}
+
+// ---- Export ----
+function exportJSON() {
+  if (!questions.length) return;
+  const blob = new Blob([JSON.stringify(questions.map(({id,...r})=>r), null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `questions_${Date.now()}.json`;
+  a.click();
+}
+
+function exportText() {
+  if (!questions.length) return;
+  const text = questions.map((q, i) => {
+    const lines = [`Q${i+1}. ${q.question}`];
+    (q.options || []).forEach(o => lines.push(`   ${o}`));
+    lines.push(`   Answer: ${q.answer}`);
+    if (q.explanation) lines.push(`   Explanation: ${q.explanation}`);
+    return lines.join('\n');
+  }).join('\n\n');
+  const blob = new Blob([text], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `questions_${Date.now()}.txt`;
+  a.click();
+}
+
+function clearAll() {
+  questions = [];
+  selectedQs.clear();
+  showState('empty');
+  document.getElementById('q-count-badge').style.display = 'none';
+  document.getElementById('sel-all-btn').style.display = 'none';
+  document.getElementById('del-sel-btn').style.display = 'none';
+  document.getElementById('save-btn').style.display = 'none';
+}
+
+function saveToTest() {
+  sessionStorage.setItem('generatedQuestions', JSON.stringify(questions));
+  window.location.href = 'proctor.html';
+}
+
+// ---- Progress animation ----
+let progressInterval;
+function animateProgress() {
+  const fill     = document.getElementById('progress-fill');
+  const label    = document.getElementById('progress-label');
+  const steps    = ['Connecting to API…','Sending prompt to GPT-4o-mini…','Processing response…','Parsing questions…','Almost done…'];
+  let pct = 0, step = 0;
+  clearInterval(progressInterval);
+
+  const emojis = ['⚡','🧠','✨','📝','🎯'];
+  const titleEl = document.getElementById('loading-title');
+  const emojiEl = document.getElementById('loading-emoji');
+
+  progressInterval = setInterval(() => {
+    pct = Math.min(pct + (Math.random() * 12 + 4), 92);
+    fill.style.width = `${pct}%`;
+    if (step < steps.length) {
+      label.textContent = steps[step];
+      emojiEl.textContent = emojis[step] || '✨';
+      titleEl.textContent = `Generating ${qCount} questions…`;
+      step++;
+    }
+  }, 600);
+}
+
+// ---- State management ----
+function showState(state) {
+  clearInterval(progressInterval);
+  document.getElementById('progress-fill').style.width = state === 'results' ? '100%' : '0%';
+
+  document.getElementById('empty-state').style.display   = state === 'empty'   ? 'flex' : 'none';
+  document.getElementById('loading-state').style.display = state === 'loading' ? 'flex' : 'none';
+  document.getElementById('error-state').style.display   = state === 'error'   ? 'flex' : 'none';
+  document.getElementById('results-area').style.display  = state === 'results' ? 'block' : 'none';
+  document.getElementById('export-area').style.display   = 'none';
+
+  const btn = document.getElementById('gen-btn');
+  const icon = document.getElementById('gen-btn-icon');
+  const text = document.getElementById('gen-btn-text');
+  if (state === 'loading') {
+    btn.disabled = true;
+    icon.className = 'spin';
+    icon.textContent = '';
+    text.textContent = 'Generating…';
+  } else {
+    btn.disabled = false;
+    icon.className = '';
+    icon.textContent = '✦';
+    text.textContent = 'Generate Questions';
+  }
+}
+
+// ---- Enter key on topic field ----
+document.getElementById('cfg-topic').addEventListener('keydown', e => {
+  if (e.key === 'Enter') generate();
+});
+</script>
+</body>
+</html>

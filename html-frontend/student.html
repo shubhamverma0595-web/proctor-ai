@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProctorAI — Student Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/student.css">
+<style>
+/* ---- Enhanced dashboard stats ---- */
+.stats-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.stat-card-sm {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card-sm::before {
+  content:''; position:absolute; top:0;left:0;right:0;height:2px;
+}
+.stat-card-sm.purple::before { background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+.stat-card-sm.green::before  { background:linear-gradient(90deg,#34d399,#6ee7b7); }
+.stat-card-sm.amber::before  { background:linear-gradient(90deg,#fbbf24,#fcd34d); }
+.stat-card-sm.red::before    { background:linear-gradient(90deg,#f87171,#fca5a5); }
+.stat-card-sm.blue::before   { background:linear-gradient(90deg,#60a5fa,#93c5fd); }
+.stat-label-sm { font-size:11px;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:4px; }
+.stat-val-sm   { font-family:var(--font-display);font-size:26px;font-weight:700; }
+.stat-val-sm.purple { color:var(--accent2); }
+.stat-val-sm.green  { color:var(--green); }
+.stat-val-sm.amber  { color:var(--amber); }
+.stat-val-sm.red    { color:var(--red); }
+.stat-val-sm.blue   { color:#60a5fa; }
+.stat-sub { font-size:11px;color:var(--text3);margin-top:3px; }
+
+/* ---- Score chart ---- */
+.chart-card {
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:24px;
+}
+.chart-title { font-size:13px;font-weight:500;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between; }
+.chart-title span { font-size:11px;color:var(--text3); }
+#score-chart { width:100%;height:100px;display:block; }
+.chart-empty { height:80px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text3); }
+
+/* ---- Results tab ---- */
+.results-stats-grid {
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:20px;
+}
+.rstat-card {
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;
+}
+.rstat-label { font-size:11px;color:var(--text2);margin-bottom:6px; }
+.rstat-value { font-family:var(--font-display);font-size:24px;font-weight:700; }
+.rstat-value.purple { color:var(--accent2); }
+.rstat-value.green  { color:var(--green); }
+.rstat-value.amber  { color:var(--amber); }
+.rstat-value.red    { color:var(--red); }
+
+/* ---- Result card ---- */
+.results-list { display:flex;flex-direction:column;gap:10px; }
+.result-card {
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color 0.2s;
+}
+.result-card:hover { border-color:var(--border2); }
+.result-card-header {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;cursor:pointer;gap:12px;
+}
+.rc-left  { display:flex;align-items:center;gap:12px;flex:1;min-width:0; }
+.rc-right { display:flex;align-items:center;gap:8px;flex-shrink:0;text-align:right; }
+
+.grade-ring {
+  width:44px;height:44px;border-radius:50%;flex-shrink:0;
+  background:conic-gradient(var(--gc,var(--green)) 0deg, var(--surface2) 0);
+  display:flex;align-items:center;justify-content:center;position:relative;
+}
+.grade-ring::before { content:'';position:absolute;inset:4px;background:var(--surface);border-radius:50%; }
+.grade-letter { font-family:var(--font-display);font-size:14px;font-weight:700;position:relative;z-index:1; }
+
+.rc-title { font-size:14px;font-weight:500;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.rc-meta  { display:flex;flex-wrap:wrap;gap:4px;font-size:11px;color:var(--text3); }
+.rc-score { font-family:var(--font-display);font-size:22px;font-weight:700; }
+.rc-fraction { font-size:11px;color:var(--text3); }
+.rc-chevron { font-size:18px;color:var(--text3);transition:transform 0.2s;display:inline-block; }
+
+.rc-progress-wrap { height:3px;background:var(--surface2); }
+.rc-progress-bar  { height:100%;border-radius:2px;transition:width 0.5s; }
+
+.rc-detail { border-top:1px solid var(--border); }
+
+.bd-list { padding:8px 16px 12px; }
+.bd-row  { display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px; }
+.bd-row:last-child { border-bottom:none; }
+.bd-num  { width:28px;flex-shrink:0;font-family:var(--font-display);font-size:11px;font-weight:600;color:var(--text3);padding-top:1px; }
+.bd-q    { flex:1;color:var(--text2);line-height:1.4; }
+.bd-ans  { flex-shrink:0;font-weight:500; }
+.bd-correct .bd-ans { color:var(--green); }
+.bd-wrong .bd-ans   { color:var(--red); }
+
+/* ---- Post-exam result view ---- */
+.results-card-wide { background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;max-width:700px;margin:0 auto; }
+.result-top { padding:32px;text-align:center;border-bottom:1px solid var(--border); }
+.breakdown-grid {
+  display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:20px;border-bottom:1px solid var(--border);
+}
+.bd-stat { text-align:center; }
+.bd-stat-val { display:block;font-family:var(--font-display);font-size:24px;font-weight:700;margin-bottom:3px; }
+.bd-stat-val.green { color:var(--green); }
+.bd-stat-val.red   { color:var(--red); }
+.bd-stat-val.amber { color:var(--amber); }
+.bd-stat-label { font-size:11px;color:var(--text2); }
+
+.breakdown-q-list { max-height:280px;overflow-y:auto;padding:12px 16px; }
+.bq-row  { display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px; }
+.bq-row:last-child { border-bottom:none; }
+.bq-icon { width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px; }
+.bq-correct .bq-icon { background:var(--green-bg);color:var(--green); }
+.bq-wrong   .bq-icon { background:var(--red-bg);color:var(--red); }
+.bq-q   { color:var(--text2);font-size:12px;margin-bottom:3px;line-height:1.4; }
+.bq-ans { font-size:11px;color:var(--text3); }
+.bq-ans strong { font-weight:600; }
+.result-footer { padding:16px;display:flex;gap:10px;justify-content:center; }
+.btn-back  { padding:10px 24px;background:var(--accent);border:none;border-radius:9px;color:white;font-family:var(--font-display);font-size:14px;font-weight:600;cursor:pointer;transition:background 0.2s; }
+.btn-back:hover { background:#6b5ce7; }
+.btn-view-results { padding:10px 20px;background:none;border:1px solid var(--border2);border-radius:9px;color:var(--text2);font-family:var(--font-body);font-size:14px;cursor:pointer;transition:all 0.2s; }
+.btn-view-results:hover { border-color:var(--accent);color:var(--accent2); }
+
+/* ---- Test card retake state ---- */
+.test-btn.retake { background:var(--surface2);border:1px solid var(--border2);color:var(--text2); }
+.test-btn.retake:hover { background:var(--accent);color:white; }
+.badge-completed { background:var(--green-bg);color:var(--green); }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="student.html">
+    <div class="nav-logo-icon">🎯</div>
+    Proctor<span>AI</span>
+  </a>
+  <div class="nav-right">
+    <div class="nav-user">
+      <div class="nav-avatar" id="user-initials">S</div>
+      <span id="user-name-nav">Student</span>
+    </div>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-label">Menu</div>
+    <button class="sidebar-item active" onclick="showStudentView('dashboard')" id="nav-dashboard"><span class="icon">🏠</span> Dashboard</button>
+    <button class="sidebar-item" onclick="showStudentView('tests')" id="nav-tests"><span class="icon">📝</span> My Tests</button>
+    <button class="sidebar-item" onclick="showStudentView('results')" id="nav-results"><span class="icon">📊</span> My Results</button>
+    <div class="sidebar-label" style="margin-top:12px;">Tools</div>
+    <button class="sidebar-item" onclick="openPractice()"><span class="icon">🧠</span> AI Practice</button>
+  </div>
+
+  <div class="main">
+
+    <!-- ===================== DASHBOARD ===================== -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-header" style="display:block;">
+        <h1 class="page-title" id="welcome-title">Good morning 👋</h1>
+        <p class="page-sub">Here's your exam overview and progress</p>
+      </div>
+
+      <!-- Stats row -->
+      <div class="stats-grid-2">
+        <div class="stat-card-sm purple">
+          <div class="stat-label-sm">📝 Available</div>
+          <div class="stat-val-sm purple" id="stat-available">—</div>
+          <div class="stat-sub">tests to take</div>
+        </div>
+        <div class="stat-card-sm green">
+          <div class="stat-label-sm">✅ Completed</div>
+          <div class="stat-val-sm green" id="stat-completed">0</div>
+          <div class="stat-sub">exams done</div>
+        </div>
+        <div class="stat-card-sm amber">
+          <div class="stat-label-sm">📈 Avg Score</div>
+          <div class="stat-val-sm amber" id="stat-avg">—</div>
+          <div class="stat-sub">across all exams</div>
+        </div>
+        <div class="stat-card-sm green">
+          <div class="stat-label-sm">🏆 Best Score</div>
+          <div class="stat-val-sm green" id="stat-best">—</div>
+          <div class="stat-sub">personal best</div>
+        </div>
+        <div class="stat-card-sm amber">
+          <div class="stat-label-sm">🔥 Streak</div>
+          <div class="stat-val-sm amber" id="stat-streak">0d</div>
+          <div class="stat-sub">consecutive days</div>
+        </div>
+      </div>
+
+      <!-- Score chart -->
+      <div class="chart-card">
+        <div class="chart-title">
+          Recent scores
+          <span>Last 7 exams</span>
+        </div>
+        <canvas id="score-chart"></canvas>
+        <div class="chart-empty" id="chart-empty" style="display:none;">Complete an exam to see your progress chart</div>
+      </div>
+
+      <div class="section-title">Available tests</div>
+      <div class="tests-grid" id="dash-tests">
+        <div style="color:var(--text3);font-size:14px;">Loading tests…</div>
+      </div>
+    </div>
+
+    <!-- ===================== MY TESTS ===================== -->
+    <div class="view" id="view-tests">
+      <div class="page-header" style="display:block;">
+        <h1 class="page-title">My Tests</h1>
+        <p class="page-sub">All scheduled and available exams</p>
+      </div>
+      <div class="tests-grid" id="all-tests">
+        <div style="color:var(--text3);font-size:14px;">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ===================== RESULTS ===================== -->
+    <div class="view" id="view-results">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <h1 class="page-title">My Results</h1>
+          <p class="page-sub">Your complete exam history and performance</p>
+        </div>
+        <button onclick="if(confirm('Clear all results?')){localStorage.removeItem('proctor_results_'+JSON.parse(localStorage.getItem('user')||'{}').id);renderResultsTab();refreshDashboardStats();}" style="padding:7px 14px;background:none;border:1px solid var(--border2);border-radius:8px;color:var(--text3);font-family:var(--font-body);font-size:12px;cursor:pointer;">Clear all</button>
+      </div>
+      <div id="results-container">
+        <div style="text-align:center;padding:60px 20px;color:var(--text3);">
+          <div style="font-size:48px;margin-bottom:16px;">📋</div>
+          <div style="font-family:var(--font-display);font-size:18px;color:var(--text2);margin-bottom:8px;">No exams completed yet</div>
+          <div style="font-size:14px;">Take a test from the Dashboard to see your results here.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+
+<!-- ===================== EXAM OVERLAY ===================== -->
+<div id="exam-overlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:150;padding:24px;overflow-y:auto;">
+  <div style="max-width:1100px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:600;" id="exam-overlay-title">Exam in progress</div>
+      <button onclick="if(confirm('Exit exam? Progress will not be saved.'))closeExam();" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--text2);padding:7px 16px;cursor:pointer;font-family:var(--font-body);font-size:13px;">✕ Exit exam</button>
+    </div>
+
+    <!-- EXAM VIEW -->
+    <div id="exam-view" style="display:none;">
+      <div class="exam-main">
+        <div class="exam-header">
+          <div>
+            <div class="exam-name" id="active-exam-title">—</div>
+            <div class="exam-sub-text" id="active-exam-sub">—</div>
+          </div>
+          <div class="timer-block">
+            <div class="timer-label">Time remaining</div>
+            <div class="timer-value" id="timer-display">45:00</div>
+          </div>
+        </div>
+        <div id="question-area">
+          <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Generating AI questions…</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="exam-sidebar">
+        <div class="webcam-panel">
+          <div class="webcam-title"><div class="live-dot"></div>Live monitoring</div>
+          <video id="webcam-feed" autoplay muted playsinline style="width:100%;border-radius:10px;background:var(--surface2);aspect-ratio:4/3;object-fit:cover;"></video>
+          <div class="violation-log" id="violation-log">
+            <div class="ok-status">✓ Face detected — all clear</div>
+          </div>
+        </div>
+        <div class="nav-sidebar-panel">
+          <div class="nav-sidebar-title">Question navigator</div>
+          <div class="q-grid" id="q-grid"></div>
+          <div class="q-legend">
+            <span>◻ Unanswered</span>
+            <span class="answered-leg">◼ Answered</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULT VIEW (post-submit) -->
+    <div id="result-view" style="display:none;">
+      <div class="results-card-wide">
+        <div class="result-top">
+          <div style="font-size:40px;margin-bottom:12px;" id="result-emoji">🎉</div>
+          <div class="score-ring" id="score-ring" style="margin:0 auto 16px;">
+            <div class="score-num" id="score-display">0%</div>
+          </div>
+          <h2 style="font-family:var(--font-display);font-size:22px;font-weight:700;margin-bottom:6px;" id="result-title">Exam complete!</h2>
+          <p style="font-size:14px;color:var(--text2);" id="result-sub">You scored 0 out of 0</p>
+        </div>
+
+        <!-- Stats + breakdown -->
+        <div id="result-breakdown"></div>
+
+        <div class="result-footer">
+          <button class="btn-back" onclick="closeExam()">← Back to dashboard</button>
+          <button class="btn-view-results" onclick="closeExam();setTimeout(()=>showStudentView('results'),100);">View all results →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===================== PRACTICE MODAL ===================== -->
+<div class="modal-overlay" id="practice-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closePractice()">✕</button>
+    <div class="modal-title">AI Practice Mode</div>
+    <div class="modal-sub">Generate custom MCQs with GPT-4o-mini</div>
+    <div class="modal-field"><label>Subject / Topic</label><input type="text" id="prac-topic" placeholder="e.g. Data Structures, Python, Maths"></div>
+    <div class="modal-field">
+      <label>Difficulty</label>
+      <select id="prac-difficulty"><option>Easy</option><option selected>Medium</option><option>Hard</option></select>
+    </div>
+    <div class="modal-field">
+      <label>Number of questions</label>
+      <select id="prac-count">
+        <option value="5">5 questions</option>
+        <option value="10" selected>10 questions</option>
+        <option value="15">15 questions</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn-cancel" onclick="closePractice()">Cancel</button>
+      <button class="modal-btn-ok" onclick="startPractice()">Generate &amp; Start ✦</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/student.js"></script>
+</body>
+</html>

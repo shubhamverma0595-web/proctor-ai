@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProctorAI — Login</title>
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+
+<div class="left">
+  <div class="logo">
+    <div class="logo-icon">🎯</div>
+    <div class="logo-text">Proctor<span>AI</span></div>
+  </div>
+  <div class="hero-tag">AI-Powered Exam Platform</div>
+  <h1 class="hero-title">
+    Intelligent<br>
+    Exam <span class="gradient">Proctoring</span><br>
+    Reimagined.
+  </h1>
+  <p class="hero-sub">Real-time face detection, AI-generated questions, and live monitoring — all in one seamless platform.</p>
+  <div class="features">
+    <div class="feature-item"><div class="feature-dot">👁</div>Real-time face detection &amp; violation alerts</div>
+    <div class="feature-item"><div class="feature-dot">🧠</div>AI-generated MCQs via GPT-4o</div>
+    <div class="feature-item"><div class="feature-dot">📊</div>Live proctor dashboard &amp; student analytics</div>
+    <div class="feature-item"><div class="feature-dot">🔒</div>Secure, tamper-resistant exam environment</div>
+  </div>
+</div>
+
+<div class="right">
+  <div class="form-header">
+    <h2 class="form-title" id="form-title">Welcome back</h2>
+    <p class="form-sub" id="form-sub">Sign in to access your dashboard</p>
+  </div>
+  <div class="role-toggle" id="role-toggle">
+    <button class="role-btn active" onclick="setRole('student')" id="btn-student">🎓 Student</button>
+    <button class="role-btn" onclick="setRole('proctor')" id="btn-proctor">🛡 Proctor</button>
+  </div>
+  <div class="error-msg" id="error-msg"></div>
+  <div class="success-msg" id="success-msg"></div>
+  <div id="login-form">
+    <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="your@email.com" autocomplete="email"></div>
+    <div class="field">
+      <label>Password</label>
+      <div style="position: relative;">
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" style="width: 100%; padding-right: 40px;">
+        <span onclick="togglePassword('login-password')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; user-select: none;">👁️</span>
+      </div>
+    </div>
+    <button class="submit-btn" onclick="doLogin()" id="login-btn">
+      <div class="btn-inner"><div class="spinner" id="login-spinner"></div><span id="login-btn-text">Sign in</span></div>
+    </button>
+    <div class="switch-link">New here? <a onclick="showRegister()">Create an account</a></div>
+  </div>
+  <div id="register-form">
+    <div class="field"><label>Full name</label><input type="text" id="reg-name" placeholder="Your name"></div>
+    <div class="field"><label>Email</label><input type="email" id="reg-email" placeholder="your@email.com"></div>
+    <div class="field">
+      <label>Password</label>
+      <div style="position: relative;">
+        <input type="password" id="reg-password" placeholder="Choose a strong password" style="width: 100%; padding-right: 40px;">
+        <span onclick="togglePassword('reg-password')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; user-select: none;">👁️</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Confirm Password</label>
+      <div style="position: relative;">
+        <input type="password" id="reg-password-confirm" placeholder="Confirm your password" style="width: 100%; padding-right: 40px;">
+        <span onclick="togglePassword('reg-password-confirm')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; user-select: none;">👁️</span>
+      </div>
+    </div>
+    <button class="submit-btn" onclick="doRegister()" id="reg-btn">
+      <div class="btn-inner"><div class="spinner" id="reg-spinner"></div><span id="reg-btn-text">Create account</span></div>
+    </button>
+    <div class="switch-link">Already have an account? <a onclick="showLogin()">Sign in</a></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/login.js"></script>
+<script>
+  function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    if (input.type === "password") {
+      input.type = "text";
+    } else {
+      input.type = "password";
+    }
+  }
+</script>
+</body>
+</html>
