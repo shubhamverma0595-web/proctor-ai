@@ -672,77 +672,93 @@ function goToQ(i) { currentQ = i; renderQuestion(); }
 
 /* ---- Submit & SAVE ---- */
 function submitExam() {
-  stopWebcam();
-  clearTimers();
+  try {
+    console.log("Submitting exam...");
+    stopWebcam();
+    clearTimers();
 
-  // Score calculation
-  let score = 0;
-  const breakdown = questions.map((q, i) => {
-    const correct  = (q.answer || '').replace(/[^A-D]/g,'');
-    const selected = answers[i] || null;
-    if (selected === correct) score++;
-    return { question: q.question.slice(0,80), selected, correct };
-  });
+    // Score calculation
+    let score = 0;
+    const breakdown = questions.map((q, i) => {
+      const qText   = q.question || 'Question';
+      const correct = (q.answer || '').replace(/[^A-D]/g,'');
+      const selected = answers[i] || null;
+      if (selected === correct) score++;
+      return { question: qText.slice(0,80), selected, correct };
+    });
 
-  const total     = questions.length;
-  const pct       = total > 0 ? Math.round((score / total) * 100) : 0;
-  const timeTaken = Math.round((Date.now() - (examStartTime || Date.now())) / 1000);
+    const total     = questions.length;
+    const pct       = total > 0 ? Math.round((score / total) * 100) : 0;
+    const timeTaken = Math.round((Date.now() - (examStartTime || Date.now())) / 1000);
 
-  // ✅ SAVE to localStorage
-  const result = {
-    id:         `r_${Date.now()}`,
-    testId:     currentTest?.id || 'practice',
-    title:      currentTest?.title || 'Exam',
-    subject:    currentTest?.subject || 'General',
-    score,
-    total,
-    pct,
-    timeTaken,
-    violations: violationCount,
-    breakdown,
-    date:       new Date().toISOString()
-  };
-  saveResult(result);
-  clearSession(true);
+    // ✅ SAVE to localStorage
+    const result = {
+      id:         `r_${Date.now()}`,
+      testId:     currentTest?.id || 'practice',
+      title:      currentTest?.title || 'Exam',
+      subject:    currentTest?.subject || 'General',
+      score,
+      total,
+      pct,
+      timeTaken,
+      violations: violationCount,
+      breakdown,
+      date:       new Date().toISOString()
+    };
+    saveResult(result);
+    clearSession(true);
 
-  // Show result screen
-  const examView   = document.getElementById('exam-view');
-  const resultView = document.getElementById('result-view');
-  if (examView)   { examView.style.display = 'none'; examView.classList.remove('active'); }
-  if (resultView) resultView.style.display = 'block';
+    // Show result screen
+    const examView   = document.getElementById('exam-view');
+    const resultView = document.getElementById('result-view');
+    if (examView)   { examView.style.display = 'none'; examView.classList.remove('active'); }
+    if (resultView) resultView.style.display = 'block';
 
-  // Populate result view
-  document.getElementById('score-display').textContent = `${pct}%`;
-  document.getElementById('score-ring').style.setProperty('--pct', `${pct * 3.6}deg`);
-  document.getElementById('result-title').textContent  =
-    pct >= 90 ? '🏆 Outstanding!' : pct >= 70 ? '🎉 Great job!' : pct >= 50 ? '👍 Good effort!' : '📚 Keep practicing!';
-  document.getElementById('result-sub').textContent    =
-    `You scored ${score} out of ${total} questions`;
+    // Populate result view
+    const scoreDisplay = document.getElementById('score-display');
+    if (scoreDisplay) scoreDisplay.textContent = `${pct}%`;
+    
+    const scoreRing = document.getElementById('score-ring');
+    if (scoreRing) scoreRing.style.setProperty('--pct', `${pct * 3.6}deg`);
+    
+    const resultTitle = document.getElementById('result-title');
+    if (resultTitle) {
+        resultTitle.textContent  = pct >= 90 ? '🏆 Outstanding!' : pct >= 70 ? '🎉 Great job!' : pct >= 50 ? '👍 Good effort!' : '📚 Keep practicing!';
+    }
+    
+    const resultSub = document.getElementById('result-sub');
+    if (resultSub) {
+        resultSub.textContent = `You scored ${score} out of ${total} questions`;
+    }
 
-  // Breakdown table
-  const breakEl = document.getElementById('result-breakdown');
-  if (breakEl) {
-    breakEl.innerHTML = `
-      <div class="breakdown-grid">
-        <div class="bd-stat"><span class="bd-stat-val green">${score}</span><span class="bd-stat-label">Correct</span></div>
-        <div class="bd-stat"><span class="bd-stat-val red">${total - score}</span><span class="bd-stat-label">Wrong</span></div>
-        <div class="bd-stat"><span class="bd-stat-val amber">${Object.keys(answers).length < total ? total - Object.keys(answers).length : 0}</span><span class="bd-stat-label">Skipped</span></div>
-        <div class="bd-stat"><span class="bd-stat-val">${formatTime(timeTaken)}</span><span class="bd-stat-label">Time taken</span></div>
-      </div>
-      <div class="breakdown-q-list">
-        ${breakdown.map((b, i) => `
-          <div class="bq-row ${b.selected === b.correct ? 'bq-correct' : 'bq-wrong'}">
-            <div class="bq-icon">${b.selected === b.correct ? '✓' : '✗'}</div>
-            <div class="bq-body">
-              <div class="bq-q">Q${i+1}: ${b.question}</div>
-              <div class="bq-ans">
-                ${b.selected ? `Your answer: <strong>${b.selected}</strong> &nbsp;` : `<span style="color:var(--text3)">Skipped</span> &nbsp;`}
-                ${b.selected !== b.correct ? `Correct: <strong style="color:var(--green)">${b.correct}</strong>` : ''}
+    // Breakdown table
+    const breakEl = document.getElementById('result-breakdown');
+    if (breakEl) {
+      breakEl.innerHTML = `
+        <div class="breakdown-grid">
+          <div class="bd-stat"><span class="bd-stat-val green">${score}</span><span class="bd-stat-label">Correct</span></div>
+          <div class="bd-stat"><span class="bd-stat-val red">${total - score}</span><span class="bd-stat-label">Wrong</span></div>
+          <div class="bd-stat"><span class="bd-stat-val amber">${Object.keys(answers).length < total ? total - Object.keys(answers).length : 0}</span><span class="bd-stat-label">Skipped</span></div>
+          <div class="bd-stat"><span class="bd-stat-val">${formatTime(timeTaken)}</span><span class="bd-stat-label">Time taken</span></div>
+        </div>
+        <div class="breakdown-q-list">
+          ${breakdown.map((b, i) => `
+            <div class="bq-row ${b.selected === b.correct ? 'bq-correct' : 'bq-wrong'}">
+              <div class="bq-icon">${b.selected === b.correct ? '✓' : '✗'}</div>
+              <div class="bq-body">
+                <div class="bq-q">Q${i+1}: ${b.question}</div>
+                <div class="bq-ans">
+                  ${b.selected ? `Your answer: <strong>${b.selected}</strong> &nbsp;` : `<span style="color:var(--text3)">Skipped</span> &nbsp;`}
+                  ${b.selected !== b.correct ? `Correct: <strong style="color:var(--green)">${b.correct}</strong>` : ''}
+                </div>
               </div>
             </div>
-          </div>
-        `).join('')}
-      </div>`;
+          `).join('')}
+        </div>`;
+    }
+  } catch (err) {
+    console.error("Critical error during submission:", err);
+    alert("There was an error saving your results. Your camera has been stopped, but you can try refreshing the page.");
   }
 }
 
