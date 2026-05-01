@@ -283,5 +283,109 @@ function resetForm() {
   generatedQuestions = [];
 }
 
+/* ==============================
+   LIVE MONITOR
+   ============================== */
+
+let monitorPollInterval = null;
+
+function startMonitorPolling() {
+  if (monitorPollInterval) return;
+  pollMonitor(); // first run
+  monitorPollInterval = setInterval(pollMonitor, 4000); // every 4s
+}
+
+function stopMonitorPolling() {
+  if (monitorPollInterval) {
+    clearInterval(monitorPollInterval);
+    monitorPollInterval = null;
+  }
+}
+
+async function pollMonitor() {
+  try {
+    const { ok, data } = await apiFetch('/api/proctor/sessions');
+    if (!ok) return;
+
+    renderMonitorView(data);
+  } catch (e) {
+    console.error("Monitor poll failed:", e);
+  }
+}
+
+function renderMonitorView(sessions) {
+  const el = document.getElementById('monitor-area');
+  if (!el) return;
+
+  const active = sessions.filter(s => s.status === 'active');
+
+  if (!active.length) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">👁</div>
+        <p>No active exam sessions right now.<br>Students will appear here when they start an exam.</p>
+        <a href="proctor-webcam.html" class="btn-primary" style="margin-top:16px;text-decoration:none;display:inline-block;">Open Live Proctoring App</a>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:13px;color:var(--text2);font-weight:500;">
+        <span style="color:var(--green)">●</span> ${active.length} student${active.length !== 1 ? 's' : ''} proctoring live
+      </div>
+      <a href="proctor-webcam.html" class="btn-primary" style="text-decoration:none;font-size:12px;padding:6px 12px;">Launch Full Monitor</a>
+    </div>
+    <div class="monitor-grid">
+      ${active.map(s => `
+        <div class="monitor-card ${s.violations > 0 ? 'warning' : ''}">
+          <div class="mc-header">
+             <div class="mc-student">
+                <div class="student-avatar" style="width:32px;height:32px;font-size:12px;">${getInitials(s.name)}</div>
+                <div>
+                   <div class="mc-name">${s.name}</div>
+                   <div class="mc-test">${s.exam_title}</div>
+                </div>
+             </div>
+             <div class="mc-status-pill ${s.violations > 0 ? 'danger' : 'ok'}">
+                ${s.violations > 0 ? `⚠️ ${s.violations} Violations` : '✓ Clear'}
+             </div>
+          </div>
+          <div class="mc-body">
+             <div class="mc-stat-row">
+                <span>Progress:</span>
+                <span>${s.progress}%</span>
+             </div>
+             <div class="mc-progress-bar"><div class="mc-progress-fill" style="width:${s.progress}%"></div></div>
+             <div class="mc-stat-row" style="margin-top:8px;">
+                <span>Face Status:</span>
+                <span style="color:${s.face_status === 'ok' ? 'var(--green)' : 'var(--red)'}">${s.face_message}</span>
+             </div>
+          </div>
+          <div class="mc-footer">
+             <span>Time left: ${Math.floor(s.time_left / 60)}m</span>
+             <a href="proctor-webcam.html?focus=${s.student_id}" style="color:var(--accent);text-decoration:none;font-weight:600;">View Feed →</a>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+// Update showView to start/stop polling
+const originalShowView = window.showView;
+window.showView = function(viewId) {
+  if (originalShowView) originalShowView(viewId);
+  else {
+      // Manual implementation if not found
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + viewId).classList.add('active');
+      document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+      document.getElementById('nav-' + viewId).classList.add('active');
+  }
+  
+  if (viewId === 'monitor') startMonitorPolling();
+  else stopMonitorPolling();
+};
+
 /* ---- Boot ---- */
 init();
