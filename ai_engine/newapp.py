@@ -41,8 +41,10 @@ else:
 
 # ---------------- MEDIAPIPE INIT (GLOBAL) ----------------
 import mediapipe as mp
-mp_face = mp.solutions.face_detection
-detector = mp_face.FaceDetection(model_selection=0, min_detection_confidence=0.5)
+from mediapipe.python.solutions import face_detection as mp_face_detection
+
+# Initialize the detector
+detector = mp_face_detection.FaceDetection(model_selection=0, min_detection_confidence=0.5)
 
 
 # ---------------- ROUTES ----------------
