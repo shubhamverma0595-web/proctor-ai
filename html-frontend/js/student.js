@@ -129,6 +129,11 @@ function init() {
 
   loadTests();
   refreshDashboardStats();
+
+  // Check if we should jump to results tab (after reload)
+  if (window.location.hash === '#results') {
+    showStudentView('results');
+  }
 }
 
 /* ==============================
@@ -443,13 +448,9 @@ function closeExam() {
   clearSession(false);
   stopWebcam();
   clearTimers();
-  document.getElementById('exam-overlay').style.display = 'none';
-  const ev = document.getElementById('exam-view');
-  if (ev) { ev.style.display = 'none'; ev.classList.remove('active'); }
-  document.body.style.overflow = '';
-  questions = []; answers = {}; currentQ = 0;
-  refreshDashboardStats();
-  setTimeout(renderMiniChart, 100);
+  
+  // Force a full page reload to ensure all stats and states are clean
+  window.location.href = 'student.html';
 }
 
 function clearTimers() {
