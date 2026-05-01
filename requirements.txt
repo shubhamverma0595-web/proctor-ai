@@ -1,5 +1,5 @@
 opencv-python-headless==4.8.0.74
-mediapipe==0.10.0
+mediapipe==0.10.11
 flask==2.3.2
 flask-cors==4.0.0
 gunicorn==21.2.0
