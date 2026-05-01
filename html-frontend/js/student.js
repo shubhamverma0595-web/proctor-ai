@@ -524,7 +524,6 @@ function stopWebcam() {
    1. frameInterval  — captures & shares webcam frame every 1 second (smooth live view)
    2. monitorInterval — sends frame to Flask /api/analyze every 6 seconds (face detection)
 */
-let frameInterval = null;
 let analyzeCanvas = null; // reuse canvas across ticks
 
 function startMonitoring() {
@@ -535,7 +534,7 @@ function startMonitoring() {
   frameCanvas.width  = 320;   // higher res for cleaner display
   frameCanvas.height = 240;
   const frameCtx = frameCanvas.getContext('2d');
-  let lastFrameSent = 0;
+  lastFrameSent = 0;
 
   // Use requestAnimationFrame for smooth capture timing
   function captureAndBroadcast(ts) {
