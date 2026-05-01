@@ -13,7 +13,9 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 # Load environment variables
+print("Starting app...")
 load_dotenv(override=True)
+print("Env variables loaded.")
 
 OPENROUTER_KEY = os.getenv("OPENROUTER_KEY")
 print("OPENROUTER_KEY:", OPENROUTER_KEY)
@@ -35,16 +37,20 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 # Otherwise, API calls will fail, which is expected since you need the DB.
 supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
+    print("Connecting to Supabase...")
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    print("Supabase connected.")
 else:
     print("WARNING: SUPABASE_URL or SUPABASE_KEY is missing from .env")
 
 # ---------------- MEDIAPIPE INIT (GLOBAL) ----------------
+print("Initializing Mediapipe...")
 import mediapipe as mp
 
 # Initialize the detector
 mp_face = mp.solutions.face_detection
 detector = mp_face.FaceDetection(model_selection=0, min_detection_confidence=0.5)
+print("Mediapipe initialized.")
 
 
 # ---------------- ROUTES ----------------

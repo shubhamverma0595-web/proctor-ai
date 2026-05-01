@@ -1,9 +1,8 @@
-opencv-python-headless==4.8.0.74
-mediapipe==0.10.11
-flask==2.3.2
-flask-cors==4.0.0
-gunicorn==21.2.0
-numpy==1.24.3
-supabase==1.0.3
-requests==2.31.0
-python-dotenv==1.0.0
+flask
+flask-cors
+gunicorn
+supabase
+requests
+python-dotenv
+opencv-python-headless
+mediapipe
