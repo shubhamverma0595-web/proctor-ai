@@ -14,6 +14,7 @@ let currentTest = null;
 let timeLeft = 0;
 let examStartTime = null;
 let violationCount = 0;
+let lastCapturedFrame = null; // Global to store the latest frame for server sync
 
 /* ==============================
    LIVE SESSION BROADCAST
@@ -50,6 +51,23 @@ function broadcastSession(extra = {}) {
     ...extra
   };
   try { localStorage.setItem(sessionKey(), JSON.stringify(session)); } catch(e) {}
+
+  // --- SERVER SYNC (for remote proctoring) ---
+  const serverData = { ...session };
+  if (lastCapturedFrame) serverData.lastFrame = lastCapturedFrame;
+  
+  try {
+    console.log("Broadcasting session to server:", serverData.studentId);
+    apiFetch('/api/proctor/update', {
+      method: 'POST',
+      body: JSON.stringify(serverData)
+    }).then(res => {
+        if (!res.ok) console.error("Server sync failed:", res.data);
+        else console.log("Server sync successful");
+    });
+  } catch(e) {
+    console.error("Broadcast error:", e);
+  }
 }
 
 function clearSession(completed = true) {
@@ -61,6 +79,18 @@ function clearSession(completed = true) {
       status:        completed ? 'completed' : 'exited',
       lastHeartbeat: new Date().toISOString()
     }));
+
+    // Update server status too
+    try {
+      apiFetch('/api/proctor/update', {
+        method: 'POST',
+        body: JSON.stringify({
+          studentId: user?.id,
+          status: completed ? 'completed' : 'exited'
+        })
+      });
+    } catch(e) {}
+
     // Remove session + frame after 6 seconds
     setTimeout(() => {
       localStorage.removeItem(key);
@@ -429,7 +459,8 @@ async function openTest(test) {
   document.getElementById('active-exam-sub').textContent    = test.subject || 'General';
 
   questions = []; answers = {}; currentQ = 0;
-  broadcastSession();
+  console.log("Starting exam session for test:", test.id);
+  broadcastSession({ status: 'active' }); 
 
   const examView = document.getElementById('exam-view');
   const resultView = document.getElementById('result-view');
@@ -498,16 +529,24 @@ function startMonitoring() {
 
   // Use requestAnimationFrame for smooth capture timing
   function captureAndBroadcast(ts) {
-    if (ts - lastFrameSent >= 500) {          // ~2 fps
+    if (ts - lastFrameSent >= 2000) {          // Sync with server every 2 seconds for live view
       const video = document.getElementById('webcam-feed');
       if (video && video.srcObject && video.readyState >= 2) {
         frameCtx.drawImage(video, 0, 0, 320, 240);
         try {
+          const frameData = frameCanvas.toDataURL('image/jpeg', 0.60);
+          lastCapturedFrame = frameData;
+          
+          // Local storage sync (instant for same-tab)
           localStorage.setItem(
             'proctor_frame_' + (user && user.id || 'guest'),
-            JSON.stringify({ f: frameCanvas.toDataURL('image/jpeg', 0.60), t: Date.now() })
+            JSON.stringify({ f: frameData, t: Date.now() })
           );
-        } catch(e) { /* quota — skip */ }
+
+          // Server sync (remote proctoring)
+          broadcastSession();
+
+        } catch(e) { console.warn("Frame broadcast failed:", e); }
         lastFrameSent = ts;
       }
     }
@@ -523,12 +562,18 @@ function startMonitoring() {
     if (!video || !video.srcObject) return;
     analyzeCanvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
     try {
+      console.log("Sending frame to analysis API...");
       const { ok, data } = await apiFetch('/api/analyze', {
         method: 'POST',
         body: JSON.stringify({ image: analyzeCanvas.toDataURL('image/jpeg', 0.7) })
       });
-      if (ok) updateViolationLog(data);
-    } catch { /* silent */ }
+      if (ok) {
+          console.log("Analysis successful:", data);
+          updateViolationLog(data);
+      } else {
+          console.error("Analysis failed:", data);
+      }
+    } catch(err) { console.error("Analysis error:", err); }
   }, 6000);  // every 6 seconds
 }
 

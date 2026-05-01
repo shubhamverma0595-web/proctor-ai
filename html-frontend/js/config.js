@@ -103,12 +103,17 @@ function hideAlert(id) {
  * Fetch wrapper with JSON body.
  */
 async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
-  });
-  const data = await res.json();
-  return { ok: res.ok, status: res.status, data };
+  try {
+    const res = await fetch(`${API}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    });
+    const data = await res.json();
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    console.error(`apiFetch failed for ${path}:`, err);
+    return { ok: false, status: 500, data: { error: err.message } };
+  }
 }
 
 /**

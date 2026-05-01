@@ -211,12 +211,14 @@ def generate_questions():
                 "Authorization": f"Bearer {OPENROUTER_KEY}",
                 "Content-Type": "application/json"
             },
-            json=payload
+            json=payload,
+            timeout=15  # Add timeout to prevent hanging
         )
-
+        resp.raise_for_status()
         return jsonify(resp.json()), resp.status_code
 
     except Exception as e:
+        print(f"Error generating questions: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -273,6 +275,54 @@ def delete_test(test_id):
 
         supabase.table('tests').delete().eq('id', test_id).execute()
         return jsonify({"status": "test deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# -------- PROCTORING SYNC --------
+
+@app.route("/api/proctor/update", methods=["POST"])
+def update_proctor_session():
+    data = request.get_json()
+    if not data or not data.get("studentId"):
+        return jsonify({"error": "Missing studentId"}), 400
+    
+    try:
+        # Map frontend camelCase to backend snake_case for Supabase
+        import datetime
+        session_data = {
+            "student_id": data.get("studentId"),
+            "name": data.get("name"),
+            "email": data.get("email"),
+            "exam_title": data.get("examTitle"),
+            "subject": data.get("subject"),
+            "status": data.get("status"),
+            "progress": data.get("progress"),
+            "answered": data.get("answered"),
+            "total": data.get("total"),
+            "current_q": data.get("currentQ"),
+            "violations": data.get("violations"),
+            "face_status": data.get("faceStatus"),
+            "face_message": data.get("faceMessage"),
+            "time_left": data.get("timeLeft"),
+            "last_frame": data.get("lastFrame"),
+            "last_heartbeat": datetime.datetime.utcnow().isoformat()
+        }
+        
+        # Upsert into live_sessions
+        supabase.table('live_sessions').upsert(session_data).execute()
+        return jsonify({"status": "updated"})
+    except Exception as e:
+        print(f"Error in proctor update: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/proctor/sessions", methods=["GET"])
+def get_proctor_sessions():
+    try:
+        # Fetch all live sessions
+        response = supabase.table('live_sessions').select('*').execute()
+        return jsonify(response.data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

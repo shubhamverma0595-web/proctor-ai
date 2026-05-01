@@ -408,20 +408,45 @@ function drawLoop() {
 }
 rafId = requestAnimationFrame(drawLoop);
 
-/* ── POLL SESSIONS (metadata, 3s) ── */
-function pollSessions() {
+/* ── POLL SESSIONS (metadata & frames from server) ── */
+async function pollSessions() {
   const now  = Date.now();
   const live = {};
 
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key?.startsWith(SESSION_PREFIX)) continue;
-    try {
-      const s = JSON.parse(localStorage.getItem(key));
-      if (!s || s.status !== 'active') continue;
-      if (now - new Date(s.lastHeartbeat).getTime() > STALE_MS) continue;
-      live[s.studentId] = s;
-    } catch {}
+  try {
+    const res = await fetch('/api/proctor/sessions');
+    const data = await res.json();
+    
+    data.forEach(s => {
+      // Map DB snake_case to frontend camelCase
+      const session = {
+        studentId:     s.student_id,
+        name:          s.name,
+        email:         s.email,
+        examTitle:     s.exam_title,
+        subject:       s.subject,
+        status:        s.status,
+        progress:      s.progress,
+        answered:      s.answered,
+        total:         s.total,
+        currentQ:      s.current_q,
+        violations:    s.violations,
+        faceStatus:    s.face_status,
+        faceMessage:   s.face_message,
+        timeLeft:      s.time_left,
+        lastHeartbeat: s.last_heartbeat,
+        lastFrame:     s.last_frame
+      };
+
+      if (session.status !== 'active') return;
+      // Stale check: if last_heartbeat is older than 25s, assume offline
+      const hbTime = new Date(session.lastHeartbeat).getTime();
+      if (now - hbTime > 25000) return;
+      
+      live[session.studentId] = session;
+    });
+  } catch (e) {
+    console.error("Failed to poll sessions:", e);
   }
 
   // Detect face status changes → violations
@@ -438,14 +463,14 @@ function pollSessions() {
     if (!students[id]) {
       students[id] = { session: live[id], lastFrameTs: 0, fps: 0, fpsFrames: 0 };
       renderGrid();
-      // Also try to load the latest stored frame immediately
-      try {
-        const raw = localStorage.getItem(FRAME_PREFIX + id);
-        if (raw) { const obj = JSON.parse(raw); if (obj?.f) loadFrame(id, obj.f, obj.t); }
-      } catch {}
     } else {
       students[id].session = live[id];
       updateTileMeta(id, live[id]);
+    }
+
+    // If the session has a frame from the server, load it
+    if (live[id].lastFrame) {
+      loadFrame(id, live[id].lastFrame, new Date(live[id].lastHeartbeat).getTime());
     }
   });
 
