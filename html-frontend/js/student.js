@@ -202,43 +202,94 @@ function setEl(id, val) {
 function renderMiniChart() {
   const results = loadResults().slice(0, 7).reverse(); // last 7, oldest→newest
   const canvas  = document.getElementById('score-chart');
-  if (!canvas || !results.length) return;
+  if (!canvas) return;
+  
+  if (!results.length) {
+    const emptyEl = document.getElementById('chart-empty');
+    if (emptyEl) emptyEl.style.display = 'flex';
+    canvas.style.display = 'none';
+    return;
+  } else {
+    const emptyEl = document.getElementById('chart-empty');
+    if (emptyEl) emptyEl.style.display = 'none';
+    canvas.style.display = 'block';
+  }
 
   const ctx = canvas.getContext('2d');
-  const W = canvas.width  = canvas.offsetWidth;
-  const H = canvas.height = canvas.offsetHeight;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width  = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  
+  const W = rect.width;
+  const H = rect.height;
   ctx.clearRect(0, 0, W, H);
 
-  const pad   = 24;
-  const barW  = Math.min(32, (W - pad * 2) / results.length - 6);
-  const maxH  = H - pad * 2;
+  const padT   = 24;
+  const padB   = 24;
+  const padX   = 16;
+  const innerW = W - padX * 2;
+  const innerH = H - padT - padB;
+  
+  // Draw horizontal grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  [0, 0.25, 0.5, 0.75, 1].forEach(tick => {
+    const y = padT + innerH * (1 - tick);
+    ctx.beginPath();
+    ctx.moveTo(padX, y);
+    ctx.lineTo(W - padX, y);
+    ctx.stroke();
+  });
+
+  const barGap = 12;
+  const barW   = Math.min(36, (innerW - (results.length - 1) * barGap) / results.length);
+  const totalBarSpace = results.length * barW + (results.length - 1) * barGap;
+  const startX = padX + (innerW - totalBarSpace) / 2;
 
   results.forEach((r, i) => {
-    const x    = pad + i * ((W - pad * 2) / results.length) + ((W - pad * 2) / results.length - barW) / 2;
-    const barH = Math.max(4, (r.pct / 100) * maxH);
-    const y    = H - pad - barH;
+    const x    = startX + i * (barW + barGap);
+    const val  = r.pct || 0;
+    const barH = Math.max(6, (val / 100) * innerH);
+    const y    = padT + innerH - barH;
 
-    const color = r.pct >= 70 ? '#34d399' : r.pct >= 50 ? '#fbbf24' : '#f87171';
+    const colorMain = val >= 70 ? '#34d399' : val >= 50 ? '#fbbf24' : '#f87171';
+    const colorDark = val >= 70 ? '#059669' : val >= 50 ? '#d97706' : '#dc2626';
 
-    // Bar
+    // Gradient bar
+    const grad = ctx.createLinearGradient(x, y, x, y + barH);
+    grad.addColorStop(0, colorMain);
+    grad.addColorStop(1, colorDark);
+
+    // Glow / Shadow
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = colorMain + '44';
+    
+    // Bar shape
     ctx.beginPath();
-    ctx.roundRect(x, y, barW, barH, 4);
-    ctx.fillStyle = color + '33';
+    if (ctx.roundRect) {
+      ctx.roundRect(x, y, barW, barH, [6, 6, 2, 2]);
+    } else {
+      ctx.rect(x, y, barW, barH);
+    }
+    ctx.fillStyle = grad;
     ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    
+    ctx.shadowBlur = 0; // reset shadow
 
     // Score label
-    ctx.fillStyle = color;
-    ctx.font = `bold 10px DM Sans, sans-serif`;
+    ctx.fillStyle = val >= 70 ? '#6ee7b7' : val >= 50 ? '#fcd34d' : '#fca5a5';
+    ctx.font = `600 11px var(--font-display), system-ui`;
     ctx.textAlign = 'center';
-    ctx.fillText(`${r.pct}%`, x + barW / 2, y - 4);
+    ctx.fillText(`${val}%`, x + barW / 2, y - 8);
 
-    // Subject label
-    ctx.fillStyle = '#5c5878';
-    ctx.font = `9px DM Sans, sans-serif`;
-    ctx.fillText((r.subject || 'Exam').slice(0, 6), x + barW / 2, H - 6);
+    // Subject label (truncated)
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = `500 9px var(--font-body), system-ui`;
+    let sub = (r.subject || 'Exam');
+    if (sub.length > 8) sub = sub.slice(0, 7) + '..';
+    ctx.fillText(sub, x + barW / 2, H - 8);
   });
 }
 
@@ -354,15 +405,19 @@ function renderResultCard(r, i) {
   const grade  = r.pct >= 90 ? 'A+' : r.pct >= 80 ? 'A' : r.pct >= 70 ? 'B' :
                  r.pct >= 60 ? 'C'  : r.pct >= 50 ? 'D' : 'F';
   const gradeColor = r.pct >= 70 ? 'var(--green)' : r.pct >= 50 ? 'var(--amber)' : 'var(--red)';
-  const date   = new Date(r.date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+  const date   = new Date(r.date).toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+  const year   = new Date(r.date).getFullYear();
   const time   = new Date(r.date).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
 
   const breakdown = (r.breakdown || []).map((b, qi) => {
     const isCorrect = b.selected === b.correct;
-    return `<div class="bd-row ${isCorrect ? 'bd-correct' : 'bd-wrong'}">
-      <span class="bd-num">Q${qi+1}</span>
-      <span class="bd-q">${b.question || ''}</span>
-      <span class="bd-ans">${isCorrect ? '✓' : `✗ (${b.correct})`}</span>
+    return `
+    <div class="bd-row ${isCorrect ? 'bd-correct' : 'bd-wrong'}">
+      <div class="bd-num">Q${qi+1}</div>
+      <div class="bd-q">${b.question || ''}</div>
+      <div class="bd-ans">
+        ${isCorrect ? '<span class="tick">✓</span>' : `<span class="cross">✕</span> <small>(${b.correct})</small>`}
+      </div>
     </div>`;
   }).join('');
 
@@ -370,42 +425,65 @@ function renderResultCard(r, i) {
   <div class="result-card" id="rc-${i}">
     <div class="result-card-header" onclick="toggleResultDetail(${i})">
       <div class="rc-left">
-        <div class="grade-ring" style="--gc:${gradeColor}">
-          <span class="grade-letter" style="color:${gradeColor}">${grade}</span>
+        <div class="grade-badge" style="--gc:${gradeColor}">
+          <span class="grade-text">${grade}</span>
         </div>
-        <div>
+        <div class="rc-info">
           <div class="rc-title">${r.title || 'Exam'}</div>
           <div class="rc-meta">
-            <span>${r.subject || 'General'}</span>
-            <span>•</span>
-            <span>${date} at ${time}</span>
-            <span>•</span>
-            <span>⏱ ${formatTime(r.timeTaken || 0)}</span>
-            ${r.violations > 0 ? `<span>• ⚠ ${r.violations} violation${r.violations>1?'s':''}</span>` : ''}
+            <span class="rc-tag">${r.subject || 'General'}</span>
+            <span class="rc-dot"></span>
+            <span>${date}, ${year}</span>
+            <span class="rc-dot"></span>
+            <span>${time}</span>
           </div>
         </div>
       </div>
       <div class="rc-right">
-        <div class="rc-score">${r.pct}%</div>
-        <div class="rc-fraction">${r.score}/${r.total} correct</div>
-        <span class="rc-chevron" id="chev-${i}">›</span>
+        <div class="rc-score-wrap">
+          <div class="rc-score">${r.pct}%</div>
+          <div class="rc-fraction">${r.score}/${r.total} <span style="opacity:0.6">correct</span></div>
+        </div>
+        <span class="rc-chevron" id="chev-${i}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </span>
       </div>
     </div>
 
-    <!-- Progress bar -->
+    <!-- Progress bar track -->
     <div class="rc-progress-wrap">
-      <div class="rc-progress-bar" style="width:${r.pct}%;background:${gradeColor}"></div>
+      <div class="rc-progress-bar" style="width:${r.pct}%; background: linear-gradient(90deg, ${gradeColor}, ${gradeColor}aa)"></div>
     </div>
 
     <!-- Detail breakdown -->
     <div class="rc-detail" id="detail-${i}" style="display:none;">
-      ${breakdown ? `
-        <div style="padding:14px 16px 4px;font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;">Question breakdown</div>
-        <div class="bd-list">${breakdown}</div>
-      ` : '<div style="padding:16px;color:var(--text3);font-size:13px;">No question breakdown available.</div>'}
-      <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;">
-        <button onclick="retakeExam('${r.testId}','${r.subject}')" style="padding:7px 16px;background:var(--accent);border:none;border-radius:8px;color:white;font-family:var(--font-display);font-size:12px;font-weight:600;cursor:pointer;">Retake exam</button>
-        <button onclick="deleteResult(${i})" style="padding:7px 12px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text3);font-family:var(--font-body);font-size:12px;cursor:pointer;">Delete record</button>
+      <div class="detail-inner">
+        <div class="detail-stats">
+          <div class="d-stat">
+            <label>Time Taken</label>
+            <value>⏱ ${formatTime(r.timeTaken || 0)}</value>
+          </div>
+          <div class="d-stat">
+            <label>Violations</label>
+            <value class="${r.violations > 0 ? 'red' : ''}">${r.violations > 0 ? `⚠ ${r.violations}` : '✓ None'}</value>
+          </div>
+          <div class="d-stat">
+            <label>Accuracy</label>
+            <value>${r.pct}%</value>
+          </div>
+        </div>
+        
+        <div class="breakdown-title">Question Breakdown</div>
+        <div class="bd-list">${breakdown || '<div style="padding:16px;color:var(--text3);text-align:center;">No breakdown available</div>'}</div>
+        
+        <div class="detail-actions">
+          <button class="btn-retake" onclick="retakeExam('${r.testId}','${r.subject}')">
+            <span>Retake Exam</span>
+          </button>
+          <button class="btn-delete" onclick="deleteResult(${i})">
+            <span>Delete</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>`;
@@ -778,20 +856,36 @@ function submitExam() {
     if (breakEl) {
       breakEl.innerHTML = `
         <div class="breakdown-grid">
-          <div class="bd-stat"><span class="bd-stat-val green">${score}</span><span class="bd-stat-label">Correct</span></div>
-          <div class="bd-stat"><span class="bd-stat-val red">${total - score}</span><span class="bd-stat-label">Wrong</span></div>
-          <div class="bd-stat"><span class="bd-stat-val amber">${Object.keys(answers).length < total ? total - Object.keys(answers).length : 0}</span><span class="bd-stat-label">Skipped</span></div>
-          <div class="bd-stat"><span class="bd-stat-val">${formatTime(timeTaken)}</span><span class="bd-stat-label">Time taken</span></div>
+          <div class="bd-stat">
+            <span class="bd-stat-val green">${score}</span>
+            <span class="bd-stat-label">Correct</span>
+          </div>
+          <div class="bd-stat">
+            <span class="bd-stat-val red">${total - score}</span>
+            <span class="bd-stat-label">Wrong</span>
+          </div>
+          <div class="bd-stat">
+            <span class="bd-stat-val amber">${total - Object.keys(answers).length}</span>
+            <span class="bd-stat-label">Skipped</span>
+          </div>
+          <div class="bd-stat">
+            <span class="bd-stat-val">${formatTime(timeTaken)}</span>
+            <span class="bd-stat-label">Time taken</span>
+          </div>
         </div>
         <div class="breakdown-q-list">
           ${breakdown.map((b, i) => `
             <div class="bq-row ${b.selected === b.correct ? 'bq-correct' : 'bq-wrong'}">
-              <div class="bq-icon">${b.selected === b.correct ? '✓' : '✗'}</div>
+              <div class="bq-icon">
+                ${b.selected === b.correct 
+                  ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' 
+                  : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'}
+              </div>
               <div class="bq-body">
                 <div class="bq-q">Q${i+1}: ${b.question}</div>
                 <div class="bq-ans">
-                  ${b.selected ? `Your answer: <strong>${b.selected}</strong> &nbsp;` : `<span style="color:var(--text3)">Skipped</span> &nbsp;`}
-                  ${b.selected !== b.correct ? `Correct: <strong style="color:var(--green)">${b.correct}</strong>` : ''}
+                  ${b.selected ? `Selected: <strong>${b.selected}</strong>` : `<span style="opacity:0.5">Not answered</span>`}
+                  ${b.selected !== b.correct ? ` &nbsp;•&nbsp; Correct: <strong style="color:var(--green)">${b.correct}</strong>` : ''}
                 </div>
               </div>
             </div>
