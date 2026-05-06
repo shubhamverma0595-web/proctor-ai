@@ -5,6 +5,6 @@ supabase==2.28.3
 requests==2.33.1
 python-dotenv==1.2.2
 opencv-python-headless==4.13.0.92
-mediapipe==0.10.9
+mediapipe>=0.10.35
 numpy==2.2.6
 werkzeug==3.1.8
