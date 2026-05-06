@@ -687,24 +687,39 @@ function startMonitoring() {
         method: 'POST',
         body: JSON.stringify({ image: analyzeCanvas.toDataURL('image/jpeg', 0.7) })
       });
+      
       if (ok) {
           console.log("Analysis successful:", data);
           updateViolationLog(data);
       } else {
-          console.error("Analysis failed:", data);
+          console.error("Analysis service error:", data);
+          // Show error in the log so the user knows why it's not working
+          const log = document.getElementById('violation-log');
+          if (log) {
+            log.innerHTML = `<div class="violation-item" style="background:rgba(255,255,255,0.05);color:var(--text3);border-color:var(--border)">
+              ⚠️ AI Analysis Service Unavailable
+            </div>`;
+          }
       }
-    } catch(err) { console.error("Analysis error:", err); }
+    } catch(err) { 
+      console.error("Analysis communication error:", err); 
+    }
   }, 6000);  // every 6 seconds
 }
 
 function updateViolationLog(data) {
   const log = document.getElementById('violation-log');
   if (!log) return;
-  if (data.violations?.length) {
+  
+  if (data.violations && data.violations.length > 0) {
     violationCount += data.violations.length;
-    log.innerHTML = data.violations.map(v => `
-      <div class="violation-item">⚠ ${v === 'face_not_visible' ? 'Face not visible' : 'Multiple faces detected'}</div>
-    `).join('');
+    log.innerHTML = data.violations.map(v => {
+      const label = v === 'face_not_visible' ? 'Face not visible' : 
+                    v === 'multiple_faces' ? 'Multiple faces detected' : 
+                    v.replace(/_/g, ' ');
+      return `<div class="violation-item">⚠ ${label}</div>`;
+    }).join('');
+    
     const msg = data.violations[0] === 'face_not_visible' ? 'Face not visible' : 'Multiple faces detected';
     broadcastSession({ faceStatus: 'err', faceMessage: msg });
   } else {
