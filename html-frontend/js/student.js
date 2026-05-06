@@ -632,41 +632,70 @@ function stopWebcam() {
 }
 
 /* Two separate loops:
-   1. frameInterval  — captures & shares webcam frame every 1 second (smooth live view)
-   2. monitorInterval — sends frame to Flask /api/analyze every 6 seconds (face detection)
+   1. frameInterval  — captures & shares webcam frame every 2 seconds (proctor live view)
+   2. faceCheckInterval — runs Mediapipe JS face detection every 1 second (client-side, instant)
 */
-let analyzeCanvas = null; // reuse canvas across ticks
+let analyzeCanvas = null;
+let clientFaceDetector = null;
+
+async function initClientFaceDetector() {
+  return new Promise((resolve, reject) => {
+    if (clientFaceDetector) { resolve(clientFaceDetector); return; }
+    if (typeof FaceDetection === 'undefined') {
+      console.warn('Mediapipe JS not loaded, falling back to server.');
+      resolve(null); return;
+    }
+    try {
+      const fd = new FaceDetection({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+      });
+      fd.setOptions({ model: 'short', minDetectionConfidence: 0.5 });
+      fd.onResults((results) => {
+        const count = results.detections ? results.detections.length : 0;
+        const violations = [];
+        if (count === 0) violations.push('face_not_visible');
+        else if (count > 1) violations.push('multiple_faces');
+        updateViolationLog({ violations, face_count: count, face_visible: count > 0 });
+      });
+      fd.initialize().then(() => {
+        clientFaceDetector = fd;
+        console.log('Client-side Mediapipe Face Detection initialized!');
+        resolve(fd);
+      }).catch(err => {
+        console.warn('Mediapipe JS init failed:', err);
+        resolve(null);
+      });
+    } catch(e) {
+      console.warn('Mediapipe JS error:', e);
+      resolve(null);
+    }
+  });
+}
 
 function startMonitoring() {
   analyzeCanvas = document.createElement('canvas');
 
-  // ── FRAME BROADCAST: every 500ms → ~2fps smooth live view ──────────
+  // ── FRAME BROADCAST: every 2 seconds → proctor live view ──────────
   const frameCanvas = document.createElement('canvas');
-  frameCanvas.width  = 320;   // higher res for cleaner display
+  frameCanvas.width  = 320;
   frameCanvas.height = 240;
   const frameCtx = frameCanvas.getContext('2d');
   lastFrameSent = 0;
 
-  // Use requestAnimationFrame for smooth capture timing
   function captureAndBroadcast(ts) {
-    if (ts - lastFrameSent >= 2000) {          // Sync with server every 2 seconds for live view
+    if (ts - lastFrameSent >= 2000) {
       const video = document.getElementById('webcam-feed');
       if (video && video.srcObject && video.readyState >= 2) {
         frameCtx.drawImage(video, 0, 0, 320, 240);
         try {
           const frameData = frameCanvas.toDataURL('image/jpeg', 0.60);
           lastCapturedFrame = frameData;
-          
-          // Local storage sync (instant for same-tab)
           localStorage.setItem(
             'proctor_frame_' + (user && user.id || 'guest'),
             JSON.stringify({ f: frameData, t: Date.now() })
           );
-
-          // Server sync (remote proctoring)
           broadcastSession();
-
-        } catch(e) { console.warn("Frame broadcast failed:", e); }
+        } catch(e) { console.warn('Frame broadcast failed:', e); }
         lastFrameSent = ts;
       }
     }
@@ -674,38 +703,44 @@ function startMonitoring() {
   }
   frameInterval = requestAnimationFrame(captureAndBroadcast);
 
-  // ── FACE ANALYSIS: every 6 seconds ───────────────────────────────
-  analyzeCanvas.width  = 320;
-  analyzeCanvas.height = 240;
-  monitorInterval = setInterval(async () => {
-    const video = document.getElementById('webcam-feed');
-    if (!video || !video.srcObject) return;
-    analyzeCanvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
-    try {
-      console.log("Sending frame to analysis API...");
-      const { ok, data } = await apiFetch('/api/analyze', {
-        method: 'POST',
-        body: JSON.stringify({ image: analyzeCanvas.toDataURL('image/jpeg', 0.7) })
-      });
-      
-      if (ok) {
-          console.log("Analysis successful:", data);
-          updateViolationLog(data);
-      } else {
-          console.error("Analysis service error:", data);
-          // Show error in the log so the user knows why it's not working
-          const log = document.getElementById('violation-log');
-          if (log) {
-            log.innerHTML = `<div class="violation-item" style="background:rgba(255,255,255,0.05);color:var(--text3);border-color:var(--border)">
-              ⚠️ AI Analysis Service Unavailable
-            </div>`;
+  // ── CLIENT-SIDE FACE DETECTION: every 1 second ───────────────────
+  initClientFaceDetector().then(fd => {
+    if (fd) {
+      // Use Mediapipe JS — fast, client-side
+      analyzeCanvas.width  = 320;
+      analyzeCanvas.height = 240;
+      monitorInterval = setInterval(async () => {
+        const video = document.getElementById('webcam-feed');
+        if (!video || !video.srcObject || video.readyState < 2) return;
+        try {
+          await fd.send({ image: video });
+        } catch(e) { console.warn('Face detection error:', e); }
+      }, 1000);  // every 1 second — much faster than server-side
+    } else {
+      // Fallback: try server-side (may not work on Render)
+      analyzeCanvas.width  = 320;
+      analyzeCanvas.height = 240;
+      monitorInterval = setInterval(async () => {
+        const video = document.getElementById('webcam-feed');
+        if (!video || !video.srcObject) return;
+        analyzeCanvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
+        try {
+          const { ok, data } = await apiFetch('/api/analyze', {
+            method: 'POST',
+            body: JSON.stringify({ image: analyzeCanvas.toDataURL('image/jpeg', 0.7) })
+          });
+          if (ok) {
+            updateViolationLog(data);
+          } else {
+            const log = document.getElementById('violation-log');
+            if (log) log.innerHTML = `<div class="violation-item" style="background:rgba(255,255,255,0.05);color:var(--text3);border-color:var(--border)">⚠️ AI Analysis Service Unavailable</div>`;
           }
-      }
-    } catch(err) { 
-      console.error("Analysis communication error:", err); 
+        } catch(err) { console.error('Analysis error:', err); }
+      }, 6000);
     }
-  }, 6000);  // every 6 seconds
+  });
 }
+
 
 function updateViolationLog(data) {
   const log = document.getElementById('violation-log');
